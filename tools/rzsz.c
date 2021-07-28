@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 bool serial_getchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
 {
     (void) pThis;
-    return serial_read(serial_fd, data, size);
+    return serial_read(serial_fd, data, size);;
 }
 
 void serial_putchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
