@@ -1,7 +1,7 @@
 
 
-add_library(lzmodem STATIC
-            lzmodem.c
+add_library(lxyzmodem STATIC
+            lxmodem.c
             )
 
 

@@ -1,0 +1,42 @@
+#ifndef _ASCIITABLE_H
+#define _ASCIITABLE_H
+
+#define NUL       (000)
+#define SOH       (001)
+#define STX       (002)
+#define ETX       (003)
+#define EOT       (004)
+#define ENQ       (005)
+#define ACK       (006)
+#define BEL       (007)
+#define BS        (010)
+#define TAB       (011)
+#define LF        (012)
+#define VT        (013)
+#define FF        (014)
+#define CR        (015)
+#define SO        (016)
+#define SI        (017)
+#define DLE       (020)
+#define DC1       (021)
+#define DC2       (022)
+#define DC3       (023)
+#define DC4       (024)
+#define NAK       (025)
+#define SYN       (026)
+#define ETB       (027)
+#define CAN       (030)
+#define EM        (031)
+#define SUB       (032)
+#define ESC       (033)
+#define FS        (034)
+#define GS        (035)
+#define RS        (036)
+#define US        (037)
+
+#define DEL       (177)
+
+#define FIRST_PRINTABLE (040)
+#define LAST_PRINTABLE  (177)
+
+#endif /* _ASCIITABLE_H */
