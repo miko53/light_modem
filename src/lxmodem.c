@@ -1,7 +1,11 @@
 #include <string.h>
 #include "lxmodem.h"
+#include <assert.h>
 
-#define LXMODEM_CRC16_CCITT   (0x1021)
+#define LXMODEM_CRC16_CCITT_POLYNOME   (0x1021)
+#define LXMODEM_HEADER_SIZE            (2)
+#define LXMODEM_CHKSUM_SIZE            (1)
+#define LXMODEM_CRC16_SIZE             (2)
 
 #define MODEM_TRACE
 #ifdef MODEM_TRACE
@@ -14,6 +18,9 @@
 
 static uint8_t lxmodem_calcul_chksum(uint8_t* buffer, uint32_t size);
 static void lxmodem_build_and_send_preambule(modem_context_t* pThis);
+static bool lxmodem_receive_block(modem_context_t* pThis, uint8_t expectedBlkNumber, uint32_t expectedBlksize);
+static bool lxmodem_check_block_no_and_crc(modem_context_t* pThis, uint8_t expectedBlkNumber, uint32_t requestedBlksize);
+static bool lxmodem_check_crc(modem_context_t* pThis, uint32_t requestedBlksize);
 
 void lmodem_init(modem_context_t* pThis, lxmodem_opts opts)
 {
@@ -21,7 +28,7 @@ void lmodem_init(modem_context_t* pThis, lxmodem_opts opts)
     pThis->opts = opts;
     if ((opts == lxmodem_128_with_crc) || (opts == lxmodem_1k))
     {
-        crc16_init(&pThis->crc16, LXMODEM_CRC16_CCITT);
+        crc16_init(&pThis->crc16, LXMODEM_CRC16_CCITT_POLYNOME);
     }
 }
 
@@ -83,18 +90,15 @@ bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size)
     switch (pThis->opts)
     {
         case lxmodem_128_with_chksum:
-            expectedSize = 132; // blk data  =  SOH + no Bko (2 bytes) + data (128) + chksum 1(byte)
-            pThis->blksize = 128;
+            expectedSize = LXMODEM_HEADER_SIZE + 128 + LXMODEM_CHKSUM_SIZE; // blk data  =  no Bko (2 bytes) + data (128) + chksum 1(byte)
             pThis->withCrc = false;
             break;
         case lxmodem_128_with_crc:
-            expectedSize = 133; // blk data  =  SOH + no Bko (2 bytes) + data (128) + crc  2(bytes)
-            pThis->blksize = 128;
+            expectedSize = LXMODEM_HEADER_SIZE + 128 + LXMODEM_CRC16_SIZE; // blk data  =  no Bko (2 bytes) + data (128) + crc  2(bytes)
             pThis->withCrc = true;
             break;
         case lxmodem_1k:
-            expectedSize = 1029; // blk data = STX + no Blo (2 bytes) + data (1024) + crc (2bytes)
-            pThis->blksize = 1024;
+            expectedSize = LXMODEM_HEADER_SIZE + 1024 + LXMODEM_CRC16_SIZE; // blk data = no Blo (2 bytes) + data (1024) + crc (2bytes)
             pThis->withCrc = true;
             break;
     }
@@ -124,19 +128,11 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
     bool bReceived;
     bool bSendAck;
     uint8_t header;
-    uint32_t expectedBlksize;
     uint8_t expectedBlkNumber;
+    uint32_t blksize;
 
     bytes_received = 0;
     expectedBlkNumber = 1;
-    if (pThis->withCrc == true)
-    {
-        expectedBlksize = pThis->blksize + 4;
-    }
-    else
-    {
-        expectedBlksize = pThis->blksize + 3;
-    }
 
     //send that we are ready
     lxmodem_build_and_send_preambule(pThis);
@@ -153,48 +149,32 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
             {
                 case SOH:
                     //read 128 blzsize
-                    bReceived = lmodem_getchar(pThis, pThis->blk_buffer.buffer, expectedBlksize);
-                    if (bReceived)
+                    blksize = 128;
+                    bSendAck = lxmodem_receive_block(pThis, expectedBlkNumber, blksize);
+                    break;
+
+                case STX:
+                    //read 1k blzsize
+                    DBG("request 1k\n");
+                    if (pThis->opts == lxmodem_1k)
                     {
-                        uint8_t complement =  ~expectedBlkNumber;
-                        if ((pThis->blk_buffer.buffer[0] == expectedBlkNumber) &&
-                            (pThis->blk_buffer.buffer[1] == complement))
-                        {
-                            //good blocknumber
-                            if (pThis->withCrc == true)
-                            {
-                                uint16_t crc;
-                                crc = crc16_doCalcul(&pThis->crc16, pThis->blk_buffer.buffer + 2, pThis->blksize, 0, 0);
-                                if ((((crc & 0xFF00) >> 8) == pThis->blk_buffer.buffer[pThis->blksize + 2]) &&
-                                    ((crc & 0xFF) == pThis->blk_buffer.buffer[pThis->blksize + 3]))
-                                {
-                                    DBG("crc ok for block %d\n", pThis->blk_buffer.buffer[0]);
-                                    bSendAck = true;
-                                    bytes_received += pThis->blksize;
-                                }
-                            }
-                            else
-                            {
-                                uint8_t chksum;
-                                chksum = lxmodem_calcul_chksum(pThis->blk_buffer.buffer + 2, pThis->blksize);
-                                if (chksum == pThis->blk_buffer.buffer[pThis->blksize + 2])
-                                {
-                                    DBG("cheksum ok for block %d\n", pThis->blk_buffer.buffer[0]);
-                                    bSendAck = true;
-                                    bytes_received += pThis->blksize;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            DBG("wrong blknumber %d received, expected %d\n", pThis->blk_buffer.buffer[0], expectedBlkNumber);
-                        }
+                        blksize = 1024;
+                        bSendAck = lxmodem_receive_block(pThis, expectedBlkNumber, blksize);
+                    }
+                    else
+                    {
+                        ; // not compatible
+                        /* TODO seems not usefull, emiter does not fall back to 128bytes blksize */
+                        /*for(uint32_t i = 0; i < 8; i++)
+                          lmodem_getchar(pThis, pThis->blk_buffer.buffer, 128);
+                        lmodem_getchar(pThis, pThis->blk_buffer.buffer, 4);*/
                     }
                     break;
 
                 case EOT:
                     //end of transfert
                     bSendAck = true;
+                    blksize = 0;
                     bFinished = true;
                     break;
 
@@ -213,6 +193,7 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
             {
                 ack = ACK;
                 expectedBlkNumber++;
+                bytes_received += blksize;
             }
             else
             {
@@ -225,7 +206,6 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
     return bytes_received;
 }
 
-
 void lxmodem_build_and_send_preambule(modem_context_t* pThis)
 {
     char p;
@@ -237,11 +217,8 @@ void lxmodem_build_and_send_preambule(modem_context_t* pThis)
             break;
 
         case lxmodem_128_with_crc:
-            p = 'C';
-            break;
-
         case lxmodem_1k:
-            //TODO
+            p = 'C';
             break;
 
         default:
@@ -250,6 +227,33 @@ void lxmodem_build_and_send_preambule(modem_context_t* pThis)
     }
 
     lmodem_putchar(pThis, (uint8_t*) &p, 1);
+}
+
+static bool lxmodem_receive_block(modem_context_t* pThis, uint8_t expectedBlkNumber, uint32_t requestedBlksize)
+{
+    bool bReceived;
+    bool bBlockCorrectlyRetrieved;
+    uint32_t requestedData;
+
+    requestedData = requestedBlksize + LXMODEM_HEADER_SIZE;
+    bBlockCorrectlyRetrieved = false;
+
+    if ((pThis->withCrc == true) || (requestedBlksize > 128))
+    {
+        requestedData += LXMODEM_CRC16_SIZE;
+    }
+    else
+    {
+        requestedData += LXMODEM_CHKSUM_SIZE;
+    }
+
+    bReceived = lmodem_getchar(pThis, pThis->blk_buffer.buffer, requestedData);
+    if (bReceived)
+    {
+        bBlockCorrectlyRetrieved  = lxmodem_check_block_no_and_crc(pThis, expectedBlkNumber, requestedBlksize);
+    }
+
+    return bBlockCorrectlyRetrieved;
 }
 
 static uint8_t lxmodem_calcul_chksum(uint8_t* buffer, uint32_t size)
@@ -262,4 +266,60 @@ static uint8_t lxmodem_calcul_chksum(uint8_t* buffer, uint32_t size)
     }
 
     return t;
+}
+
+static bool  lxmodem_check_block_no_and_crc(modem_context_t* pThis, uint8_t expectedBlkNumber, uint32_t requestedBlksize)
+{
+    bool bBlockCorrectlyRetrieved;
+    uint8_t complement;
+
+    bBlockCorrectlyRetrieved = false;
+    complement =  ~expectedBlkNumber;
+
+    if ((pThis->blk_buffer.buffer[0] == expectedBlkNumber) &&
+        (pThis->blk_buffer.buffer[1] == complement))
+    {
+        bBlockCorrectlyRetrieved = true;
+    }
+    else
+    {
+        DBG("wrong blknumber %d received, expected %d\n", pThis->blk_buffer.buffer[0], expectedBlkNumber);
+    }
+
+    if (bBlockCorrectlyRetrieved)
+    {
+        bBlockCorrectlyRetrieved = lxmodem_check_crc(pThis, requestedBlksize);
+    }
+
+    return bBlockCorrectlyRetrieved;
+}
+
+
+static bool lxmodem_check_crc(modem_context_t* pThis, uint32_t requestedBlksize)
+{
+    bool bCrcOrChecksumOk;
+    bCrcOrChecksumOk = false;
+
+    if ((pThis->withCrc == true) || (requestedBlksize > 128))
+    {
+        uint16_t crc;
+        crc = crc16_doCalcul(&pThis->crc16, pThis->blk_buffer.buffer + LXMODEM_HEADER_SIZE, requestedBlksize, 0, 0);
+        if ((((crc & 0xFF00) >> 8) == pThis->blk_buffer.buffer[LXMODEM_HEADER_SIZE + requestedBlksize]) &&
+            ((crc & 0xFF) == pThis->blk_buffer.buffer[LXMODEM_HEADER_SIZE + requestedBlksize + 1]))
+        {
+            DBG("crc ok for block %d\n", pThis->blk_buffer.buffer[0]);
+            bCrcOrChecksumOk = true;
+        }
+    }
+    else
+    {
+        uint8_t chksum;
+        chksum = lxmodem_calcul_chksum(pThis->blk_buffer.buffer + LXMODEM_HEADER_SIZE, requestedBlksize);
+        if (chksum == pThis->blk_buffer.buffer[requestedBlksize + LXMODEM_HEADER_SIZE])
+        {
+            DBG("checksum ok for block %d\n", pThis->blk_buffer.buffer[0]);
+            bCrcOrChecksumOk = true;
+        }
+    }
+    return bCrcOrChecksumOk;
 }
