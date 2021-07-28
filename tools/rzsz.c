@@ -5,13 +5,12 @@
 #include "lxmodem.h"
 #include "serial.h"
 
-#define XMODEM_BUFFER_BLK_SIZE (132)
+#define XMODEM_BUFFER_BLK_SIZE (133)
 #define BUFFER_FILE_SIZE       (65*1024)
 
 static int32_t serial_fd;
 static modem_context_t xmodem_ctx;
 static uint8_t xmodem_buffer[XMODEM_BUFFER_BLK_SIZE];
-
 static uint8_t xmodem_recvFile[BUFFER_FILE_SIZE];
 
 static bool serial_getchar(modem_context_t* pThis, uint8_t* data, uint32_t size);
@@ -28,7 +27,7 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    lmodem_init(&xmodem_ctx, lxmodem_128_with_chksum);
+    lmodem_init(&xmodem_ctx, lxmodem_128_with_crc);
     bOk = lmodem_set_buffer(&xmodem_ctx, xmodem_buffer, XMODEM_BUFFER_BLK_SIZE);
     assert(bOk == true);
 
@@ -36,7 +35,6 @@ int main(int argc, char* argv[])
 
     lmodem_set_getchar_cb(&xmodem_ctx, serial_getchar);
     lmodem_set_putchar_cb(&xmodem_ctx, serial_putchar);
-
 
     uint32_t nbBytesReceived;
     nbBytesReceived = lxmodem_receive(&xmodem_ctx);

@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "crc16.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -29,6 +30,7 @@ typedef struct
 
 struct modem_context
 {
+    crc16_context_t crc16;
     lxmodem_opts opts;
     lmodem_buffer blk_buffer;
     lmodem_buffer ramfile;
@@ -45,9 +47,6 @@ extern bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t 
 extern void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 
 extern uint32_t lxmodem_receive(modem_context_t* pThis);
-
-
-
 
 
 #ifdef	__cplusplus

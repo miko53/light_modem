@@ -1,6 +1,8 @@
 #include <string.h>
 #include "lxmodem.h"
 
+#define LXMODEM_CRC16_CCITT   (0x1021)
+
 #define MODEM_TRACE
 #ifdef MODEM_TRACE
 #include <stdio.h>
@@ -17,6 +19,10 @@ void lmodem_init(modem_context_t* pThis, lxmodem_opts opts)
 {
     memset(pThis, 0, sizeof(modem_context_t));
     pThis->opts = opts;
+    if ((opts == lxmodem_128_with_crc) || (opts == lxmodem_1k))
+    {
+        crc16_init(&pThis->crc16, LXMODEM_CRC16_CCITT);
+    }
 }
 
 void lmodem_set_putchar_cb(modem_context_t* pThis, void (*putchar)(modem_context_t* pThis, uint8_t* data, uint32_t size))
@@ -157,7 +163,15 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
                             //good blocknumber
                             if (pThis->withCrc == true)
                             {
-
+                                uint16_t crc;
+                                crc = crc16_doCalcul(&pThis->crc16, pThis->blk_buffer.buffer + 2, pThis->blksize, 0, 0);
+                                if ((((crc & 0xFF00) >> 8) == pThis->blk_buffer.buffer[pThis->blksize + 2]) &&
+                                    ((crc & 0xFF) == pThis->blk_buffer.buffer[pThis->blksize + 3]))
+                                {
+                                    DBG("crc ok for block %d\n", pThis->blk_buffer.buffer[0]);
+                                    bSendAck = true;
+                                    bytes_received += pThis->blksize;
+                                }
                             }
                             else
                             {
@@ -165,9 +179,9 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
                                 chksum = lxmodem_calcul_chksum(pThis->blk_buffer.buffer + 2, pThis->blksize);
                                 if (chksum == pThis->blk_buffer.buffer[pThis->blksize + 2])
                                 {
-                                    DBG("good chksum\n");
+                                    DBG("cheksum ok for block %d\n", pThis->blk_buffer.buffer[0]);
                                     bSendAck = true;
-                                    bytes_received += 128;
+                                    bytes_received += pThis->blksize;
                                 }
                             }
                         }
@@ -206,7 +220,6 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
             }
             lmodem_putchar(pThis, &ack, 1);
         }
-
     }
 
     return bytes_received;
