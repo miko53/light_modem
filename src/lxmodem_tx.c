@@ -184,7 +184,6 @@ bool lxmode_build_and_send_one_data_block(modem_context_t* pThis, uint8_t blkNo,
 {
     uint32_t remainingBytes;
     bool isDone;
-    withCrc = false;
     uint32_t bytesToRead;
 
     isDone = false;

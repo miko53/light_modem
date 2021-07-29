@@ -11,6 +11,7 @@
 #define MODEM_TRACE
 #ifdef MODEM_TRACE
 #include <stdio.h>
+#include <time.h>
 #define DBG(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define DBG(...)
@@ -20,7 +21,8 @@ static inline void lmodem_putchar(modem_context_t* pThis, uint8_t* data, uint32_
 {
 #ifdef MODEM_TRACE
     int32_t i;
-    DBG("send %d byte(s): ", size);
+    time_t t = time(NULL);
+    DBG("(%ld) send %d byte(s): ", t, size);
     for (i = 0; i < (int32_t) (size - 1); i++)
     {
         DBG("0x%.2x-", data[i] & 0xFF);
@@ -38,7 +40,8 @@ static inline bool lmodem_getchar(modem_context_t* pThis, uint8_t* data, uint32_
     if (b)
     {
         int32_t i;
-        DBG("get %d byte(s): ", size);
+        time_t t = time(NULL);
+        DBG("(%ld) get %d byte(s): ", t, size);
         for (i = 0; i < (int32_t) (size - 1); i++)
         {
             DBG("0x%.2x-", data[i] & 0xFF);
@@ -47,7 +50,8 @@ static inline bool lmodem_getchar(modem_context_t* pThis, uint8_t* data, uint32_
     }
     else
     {
-        DBG("get 0 byte\n");
+        time_t t = time(NULL);
+        DBG("(%ld) get 0 byte\n", t);
     }
 #endif /* MODEM_TRACE */
     return b;
