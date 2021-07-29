@@ -144,7 +144,7 @@ static bool parse_options(int argc, char* argv[])
         {
             break;
         }
-        fprintf(stdout, "c = %d \n", c);
+
         switch (c)
         {
             case OPTS_PROTOCOL:
