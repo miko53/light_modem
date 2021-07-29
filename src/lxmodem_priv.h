@@ -4,6 +4,10 @@
 
 #include "lxmodem.h"
 
+#define LXMODEM_CRC16_INIT_VALUE       (0)
+#define LXMODEM_CRC16_XOR_FINAL        (0)
+
+
 #define MODEM_TRACE
 #ifdef MODEM_TRACE
 #include <stdio.h>
@@ -48,5 +52,8 @@ static inline bool lmodem_getchar(modem_context_t* pThis, uint8_t* data, uint32_
 #endif /* MODEM_TRACE */
     return b;
 }
+
+extern void lxmodem_build_and_send_cancel(modem_context_t* pThis);
+extern uint8_t lxmodem_calcul_chksum(uint8_t* buffer, uint32_t size);
 
 #endif /* LXMODEM_PRIV_H */

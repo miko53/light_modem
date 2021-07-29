@@ -1,11 +1,10 @@
 #include <string.h>
 #include "lxmodem.h"
 #include "lxmodem_priv.h"
+#include "lmodem_buffer.h"
 #include <assert.h>
 
 #define LXMODEM_CRC16_CCITT_POLYNOME   (0x1021)
-#define LXMODEM_CRC16_INIT_VALUE       (0)
-#define LXMODEM_CRC16_XOR_FINAL        (0)
 #define LXMODEM_HEADER_SIZE            (2)
 #define LXMODEM_CHKSUM_SIZE            (1)
 #define LXMODEM_CRC16_SIZE             (2)
@@ -19,14 +18,12 @@ typedef enum
     LXMODEM_RECV_ERROR
 } lxmodem_reception_status;
 
-static uint8_t lxmodem_calcul_chksum(uint8_t* buffer, uint32_t size);
 static void lxmodem_build_and_send_preambule(modem_context_t* pThis);
 static lxmodem_reception_status lxmodem_receive_block(modem_context_t* pThis, uint8_t expectedBlkNumber, uint32_t expectedBlksize);
 static lxmodem_reception_status lxmodem_check_block_no_and_crc(modem_context_t* pThis, uint8_t expectedBlkNumber,
         uint32_t requestedBlksize);
 static lxmodem_reception_status lxmodem_check_crc(modem_context_t* pThis, uint32_t requestedBlksize);
 static void lxmodem_build_and_send_reply(modem_context_t* pThis, lxmodem_reception_status rcvStatus);
-static void lxmodem_build_and_send_cancel(modem_context_t* pThis);
 
 void lmodem_init(modem_context_t* pThis, lxmodem_opts opts)
 {
@@ -79,7 +76,7 @@ bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size)
     {
         pThis->blk_buffer.buffer = buffer;
         pThis->blk_buffer.max_size = size;
-        pThis->blk_buffer.current_size = 0;
+        //pThis->blk_buffer.current_size = 0;
         bOk = true;
     }
 
@@ -88,9 +85,7 @@ bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size)
 
 void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size)
 {
-    pThis->ramfile.buffer = buffer;
-    pThis->ramfile.max_size = size;
-    pThis->ramfile.current_size = 0;
+    lmodem_buffer_init(&pThis->ramfile, buffer, size);
 }
 
 uint32_t lxmodem_receive(modem_context_t* pThis)
@@ -237,7 +232,7 @@ static lxmodem_reception_status lxmodem_receive_block(modem_context_t* pThis, ui
     return blockCorrectlyRetrieved;
 }
 
-static uint8_t lxmodem_calcul_chksum(uint8_t* buffer, uint32_t size)
+uint8_t lxmodem_calcul_chksum(uint8_t* buffer, uint32_t size)
 {
     uint8_t t;
     t = 0;

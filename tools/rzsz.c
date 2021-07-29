@@ -6,9 +6,11 @@
 #include <string.h>
 #include "lxmodem.h"
 #include "serial.h"
+#include <sys/stat.h>
+
 
 #define XMODEM_BUFFER_BLK_SIZE (133)
-#define BUFFER_FILE_SIZE       (65*1024)
+#define BUFFER_FILE_SIZE       (1024*1024)
 
 typedef enum
 {
@@ -124,15 +126,47 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    lmodem_set_file_buffer(&xmodem_ctx, xmodem_recvFile, BUFFER_FILE_SIZE);
+
     lmodem_set_getchar_cb(&xmodem_ctx, serial_getchar);
     lmodem_set_putchar_cb(&xmodem_ctx, serial_putchar);
 
-    uint32_t nbBytesReceived;
-    nbBytesReceived = lxmodem_receive(&xmodem_ctx);
-    fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
+    if (options.rx)
+    {
+        uint32_t nbBytesReceived;
+        lmodem_set_file_buffer(&xmodem_ctx, xmodem_recvFile, BUFFER_FILE_SIZE);
+        nbBytesReceived = lxmodem_receive(&xmodem_ctx);
+        fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
+    }
 
-    lxmodem_emit(&xmodem_ctx);
+    if (options.tx)
+    {
+        struct stat fileStat;
+        int r;
+        r = stat(options.filename, &fileStat);
+        if (r == 0)
+        {
+            fprintf(stdout, "file size = %ld\n", fileStat.st_size);
+            FILE* f = fopen(options.filename, "r");
+            if (f != NULL)
+            {
+                uint8_t* datafile = malloc(fileStat.st_size);
+                uint32_t nbRead;
+                uint32_t nbBytesEmitted;
+                bool b;
+                nbRead = fread(datafile, fileStat.st_size, 1, f);
+                fprintf(stdout, "nbBlockRead = %d\n", nbRead);
+
+                lmodem_set_file_buffer(&xmodem_ctx, datafile, fileStat.st_size);
+                b = lmodem_set_write_offset(&xmodem_ctx.ramfile, fileStat.st_size);
+                assert(b == true);
+
+                nbBytesEmitted = lxmodem_emit(&xmodem_ctx);
+                fprintf(stdout, "nbBytesEmitted = %d\n", nbBytesEmitted);
+                free(datafile);
+            }
+        }
+
+    }
 
     serial_close(serial_fd);
     free(xmodem_buffer);

@@ -12,9 +12,9 @@ extern "C" {
 
 #include "asciitable.h"
 
-#define LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE    (2 + 128 + 1)
-#define LXMODEM_128_CRC_BUFFER_MIN_SIZE       (2 + 128 + 2)
-#define LXMODEM_1K_BUFFER_MIN_SIZE            (2 + 1024 + 2)
+#define LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE    (1 + 2 + 128 + 1)
+#define LXMODEM_128_CRC_BUFFER_MIN_SIZE       (1 + 2 + 128 + 2)
+#define LXMODEM_1K_BUFFER_MIN_SIZE            (1 + 2 + 1024 + 2)
 
 typedef enum
 {
@@ -28,7 +28,8 @@ typedef struct modem_context modem_context_t;
 typedef struct
 {
     uint8_t* buffer;
-    uint32_t current_size;
+    uint32_t read_offset;
+    uint32_t write_offset;
     uint32_t max_size;
 } lmodem_buffer;
 
@@ -51,6 +52,9 @@ extern void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint
 
 extern uint32_t lxmodem_receive(modem_context_t* pThis);
 extern uint32_t lxmodem_emit(modem_context_t* pThis);
+
+extern bool lmodem_set_write_offset(lmodem_buffer* pThis, uint32_t newWriteOffset);
+extern int32_t lmodem_buffer_read(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);
 
 #ifdef	__cplusplus
 }
