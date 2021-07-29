@@ -20,6 +20,9 @@ typedef enum
     OPTS_NB_STOP,
     OPTS_CRC,
     OPTS_1K,
+    OPTS_TX,
+    OPTS_RX,
+    OPTS_FILE,
     OPTS_UNKNOWN = '?'
 } OPTS;
 
@@ -39,9 +42,12 @@ typedef struct
     uint32_t nb_stop;
     uint32_t crc;
     uint32_t xmodem_blksize;
+    uint32_t tx;
+    uint32_t rx;
+    char* filename;
 } options_t;
 
-static options_t  options;
+static options_t options;
 
 static struct option long_options[] =
 {
@@ -54,6 +60,9 @@ static struct option long_options[] =
     {"nb-stop", required_argument, 0, OPTS_NB_STOP},
     {"crc", no_argument, 0, OPTS_CRC},
     {"1k", no_argument, 0, OPTS_1K},
+    {"tx", no_argument, 0, OPTS_TX},
+    {"rx", no_argument, 0, OPTS_RX},
+    {"file", required_argument, 0, OPTS_FILE},
     {0, 0, 0, 0}
 };
 
@@ -81,7 +90,7 @@ int main(int argc, char* argv[])
     serial_fd = serial_setup(options.device, options.speed, options.parity, options.ctrl_flow, options.nb_stop);
     if (serial_fd < 0)
     {
-        fprintf(stderr, "unable to open /dev/tty/USB0\n");
+        fprintf(stderr, "unable to open '%s'\n", options.device);
         exit(EXIT_FAILURE);
     }
 
@@ -89,17 +98,17 @@ int main(int argc, char* argv[])
     if (options.xmodem_blksize > 0)
     {
         xmodem_opts = lxmodem_1k;
-        xmodem_buffer_size = 2 + 1024 + 2;
+        xmodem_buffer_size = LXMODEM_1K_BUFFER_MIN_SIZE;
     }
     else if (options.crc > 0)
     {
         xmodem_opts = lxmodem_128_with_crc;
-        xmodem_buffer_size = 2 + 128 + 2;
+        xmodem_buffer_size = LXMODEM_128_CRC_BUFFER_MIN_SIZE;
     }
     else
     {
         xmodem_opts = lxmodem_128_with_chksum;
-        xmodem_buffer_size = 2 + 128 + 1;
+        xmodem_buffer_size = LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE;
     }
 
     xmodem_buffer = malloc(xmodem_buffer_size);
@@ -122,6 +131,8 @@ int main(int argc, char* argv[])
     uint32_t nbBytesReceived;
     nbBytesReceived = lxmodem_receive(&xmodem_ctx);
     fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
+
+    lxmodem_emit(&xmodem_ctx);
 
     serial_close(serial_fd);
     free(xmodem_buffer);
@@ -177,6 +188,18 @@ static bool parse_options(int argc, char* argv[])
 
             case OPTS_1K:
                 options.xmodem_blksize = 1;
+                break;
+
+            case OPTS_TX:
+                options.tx = 1;
+                break;
+
+            case OPTS_RX:
+                options.rx = 1;
+                break;
+
+            case OPTS_FILE:
+                options.filename = optarg;
                 break;
 
             case OPTS_UNKNOWN:
@@ -235,6 +258,30 @@ static bool parse_options(int argc, char* argv[])
     if (bOk)
     {
         fprintf(stdout, "xmodem_crc: %d\n", options.crc);
+    }
+
+    if (bOk && (options.tx ^ options.rx) == 0)
+    {
+        fprintf(stdout, "only one of tx or rx options must be set\n");
+        bOk = false;
+    }
+    else
+    {
+        fprintf(stdout, "rx: %d\n", options.rx);
+        fprintf(stdout, "tx: %d\n", options.tx);
+    }
+
+    if (bOk)
+    {
+        if (options.filename == NULL)
+        {
+            fprintf(stdout, "a filename must be specified\n");
+            bOk = false;
+        }
+        else
+        {
+            fprintf(stdout, "file: %s\n", options.filename);
+        }
     }
 
     return bOk;

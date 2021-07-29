@@ -12,6 +12,10 @@ extern "C" {
 
 #include "asciitable.h"
 
+#define LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE    (2 + 128 + 1)
+#define LXMODEM_128_CRC_BUFFER_MIN_SIZE       (2 + 128 + 2)
+#define LXMODEM_1K_BUFFER_MIN_SIZE            (2 + 1024 + 2)
+
 typedef enum
 {
     lxmodem_128_with_chksum,
@@ -46,7 +50,7 @@ extern bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t 
 extern void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 
 extern uint32_t lxmodem_receive(modem_context_t* pThis);
-
+extern uint32_t lxmodem_emit(modem_context_t* pThis);
 
 #ifdef	__cplusplus
 }

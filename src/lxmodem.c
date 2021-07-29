@@ -1,22 +1,16 @@
 #include <string.h>
 #include "lxmodem.h"
+#include "lxmodem_priv.h"
 #include <assert.h>
 
 #define LXMODEM_CRC16_CCITT_POLYNOME   (0x1021)
+#define LXMODEM_CRC16_INIT_VALUE       (0)
+#define LXMODEM_CRC16_XOR_FINAL        (0)
 #define LXMODEM_HEADER_SIZE            (2)
 #define LXMODEM_CHKSUM_SIZE            (1)
 #define LXMODEM_CRC16_SIZE             (2)
 #define LXMODEM_BLOCK_SIZE_128         (128)
 #define LXMODEM_BLOCK_SIZE_1024        (1024)
-
-#define MODEM_TRACE
-#ifdef MODEM_TRACE
-#include <stdio.h>
-#define DBG(...) fprintf(stderr, __VA_ARGS__)
-
-#else
-#define DBG(...)
-#endif /* MODEM_DBG */
 
 typedef enum
 {
@@ -52,43 +46,6 @@ void lmodem_set_putchar_cb(modem_context_t* pThis, void (*putchar)(modem_context
 void lmodem_set_getchar_cb(modem_context_t* pThis, bool (*getchar)(modem_context_t* pThis, uint8_t* data, uint32_t size))
 {
     pThis->getchar = getchar;
-}
-
-static inline void lmodem_putchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
-{
-#ifdef MODEM_TRACE
-    int32_t i;
-    DBG("send %d byte(s): ", size);
-    for (i = 0; i < (int32_t) (size - 1); i++)
-    {
-        DBG("0x%.2x-", data[i] & 0xFF);
-    }
-    DBG("0x%.2x\n", data[i] & 0xFF);
-#endif /* MODEM_TRACE */
-    pThis->putchar(pThis, data, size);
-}
-
-static inline bool lmodem_getchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
-{
-    bool b;
-    b = pThis->getchar(pThis, data, size);
-#ifdef MODEM_TRACE
-    if (b)
-    {
-        int32_t i;
-        DBG("get %d byte(s): ", size);
-        for (i = 0; i < (int32_t) (size - 1); i++)
-        {
-            DBG("0x%.2x-", data[i] & 0xFF);
-        }
-        DBG("0x%.2x\n", data[i] & 0xFF);
-    }
-    else
-    {
-        DBG("get 0 byte\n");
-    }
-#endif /* MODEM_TRACE */
-    return b;
 }
 
 bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size)
@@ -341,7 +298,8 @@ static lxmodem_reception_status lxmodem_check_crc(modem_context_t* pThis, uint32
         uint8_t hiCrc;
         uint8_t loCrc;
 
-        crc = crc16_doCalcul(&pThis->crc16, pThis->blk_buffer.buffer + LXMODEM_HEADER_SIZE, requestedBlksize, 0, 0);
+        crc = crc16_doCalcul(&pThis->crc16, pThis->blk_buffer.buffer + LXMODEM_HEADER_SIZE, requestedBlksize,
+                             LXMODEM_CRC16_INIT_VALUE, LXMODEM_CRC16_XOR_FINAL);
         hiCrc = ((crc & 0xFF00) >> 8);
         loCrc = (crc & 0xFF);
 
