@@ -76,7 +76,7 @@ bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size)
     {
         pThis->blk_buffer.buffer = buffer;
         pThis->blk_buffer.max_size = size;
-        //pThis->blk_buffer.current_size = 0;
+        pThis->blk_buffer.current_size = 0;
         bOk = true;
     }
 
@@ -88,7 +88,7 @@ void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t si
     lmodem_buffer_init(&pThis->ramfile, buffer, size);
 }
 
-uint32_t lxmodem_receive(modem_context_t* pThis)
+int32_t lxmodem_receive(modem_context_t* pThis)
 {
     uint32_t receivedBytes;
     bool bFinished;
@@ -161,9 +161,24 @@ uint32_t lxmodem_receive(modem_context_t* pThis)
             lxmodem_build_and_send_reply(pThis, rcvStatus);
             if (rcvStatus == LXMODEM_RECV_OK)
             {
-                expectedBlkNumber++;
-                receivedBytes += blksize;
-                nbRetry = 0;
+                int32_t nbPutInRamFile;
+                nbPutInRamFile = lmodem_buffer_write(&pThis->ramfile, pThis->blk_buffer.buffer + 2, blksize);
+                if (nbPutInRamFile != (int32_t) blksize)
+                {
+                    DBG("enable to put into ramfile -> abort\n");
+                    bFinished = true;
+                    receivedBytes = -1;
+                    uint8_t buffer[2];
+                    buffer[0] = CAN;
+                    buffer[1] = CAN;
+                    lmodem_putchar(pThis, buffer, 2);
+                }
+                else
+                {
+                    expectedBlkNumber++;
+                    receivedBytes += blksize;
+                    nbRetry = 0;
+                }
             }
             else
             {

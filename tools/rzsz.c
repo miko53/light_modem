@@ -82,6 +82,8 @@ static void serial_putchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
 int main(int argc, char* argv[])
 {
     bool bOk;
+    int exit_code;
+    exit_code = EXIT_FAILURE;
 
     bOk = parse_options(argc, argv);
     if (!bOk)
@@ -132,14 +134,31 @@ int main(int argc, char* argv[])
 
     if (options.rx)
     {
-        uint32_t nbBytesReceived;
+        int32_t nbBytesReceived;
+        exit_code = EXIT_FAILURE;
         lmodem_set_file_buffer(&xmodem_ctx, xmodem_recvFile, BUFFER_FILE_SIZE);
-        nbBytesReceived = lxmodem_receive(&xmodem_ctx);
-        fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
+
+        FILE* f = fopen(options.filename, "w");
+        if (f != NULL)
+        {
+            nbBytesReceived = lxmodem_receive(&xmodem_ctx);
+            fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
+            if (nbBytesReceived >= 0)
+            {
+                exit_code = EXIT_SUCCESS;
+                fwrite(xmodem_ctx.ramfile.buffer, 1, xmodem_ctx.ramfile.write_offset, f);
+            }
+            fclose(f);
+        }
+        else
+        {
+            fprintf(stdout, "unable to open file '%s'\n", options.filename);
+        }
     }
 
     if (options.tx)
     {
+        exit_code = EXIT_FAILURE;
         struct stat fileStat;
         int r;
         r = stat(options.filename, &fileStat);
@@ -151,7 +170,7 @@ int main(int argc, char* argv[])
             {
                 uint8_t* datafile = malloc(fileStat.st_size);
                 uint32_t nbRead;
-                uint32_t nbBytesEmitted;
+                int32_t nbBytesEmitted;
                 bool b;
                 nbRead = fread(datafile, fileStat.st_size, 1, f);
                 fprintf(stdout, "nbBlockRead = %d\n", nbRead);
@@ -163,14 +182,22 @@ int main(int argc, char* argv[])
                 nbBytesEmitted = lxmodem_emit(&xmodem_ctx);
                 fprintf(stdout, "nbBytesEmitted = %d\n", nbBytesEmitted);
                 free(datafile);
+                if (nbBytesEmitted >= 0)
+                {
+                    exit_code = EXIT_SUCCESS;
+                }
             }
+        }
+        else
+        {
+            fprintf(stdout, "unable to open file '%s'\n", options.filename);
         }
 
     }
 
     serial_close(serial_fd);
     free(xmodem_buffer);
-    return EXIT_SUCCESS;
+    return exit_code;
 }
 
 static bool parse_options(int argc, char* argv[])

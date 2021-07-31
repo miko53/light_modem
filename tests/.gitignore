@@ -1,0 +1,4 @@
+*.log
+tests_results/*.txt
+tests_results/*.bin
+

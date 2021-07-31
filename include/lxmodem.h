@@ -33,12 +33,18 @@ typedef struct
     uint32_t max_size;
 } lmodem_buffer;
 
+typedef struct
+{
+    uint8_t* buffer;
+    uint32_t current_size;
+    uint32_t max_size;
+} lmodem_linebuffer;
+
 struct modem_context
 {
     crc16_context_t crc16;
     lxmodem_opts opts;
-    lmodem_buffer blk_buffer;
-    uint32_t blk_buffer_current_size;
+    lmodem_linebuffer blk_buffer;
     lmodem_buffer ramfile;
     bool withCrc;
     bool (*getchar)(modem_context_t* pThis, uint8_t* data, uint32_t size);
@@ -51,11 +57,12 @@ extern void lmodem_set_getchar_cb(modem_context_t* pThis, bool (*getchar)(modem_
 extern bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 extern void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 
-extern uint32_t lxmodem_receive(modem_context_t* pThis);
-extern uint32_t lxmodem_emit(modem_context_t* pThis);
+extern int32_t lxmodem_receive(modem_context_t* pThis);
+extern int32_t lxmodem_emit(modem_context_t* pThis);
 
 extern bool lmodem_set_write_offset(lmodem_buffer* pThis, uint32_t newWriteOffset);
 extern int32_t lmodem_buffer_read(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);
+extern int32_t lmodem_buffer_write(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);
 
 #ifdef	__cplusplus
 }
