@@ -17,6 +17,8 @@
 #define DBG(...)
 #endif /* MODEM_DBG */
 
+#define min(a,b)      (((a)<(b))?(a):(b))
+
 static inline void lmodem_putchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
 {
 #ifdef MODEM_TRACE
