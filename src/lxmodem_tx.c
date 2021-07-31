@@ -7,6 +7,7 @@ static bool lxmodem_decode_preambule(modem_context_t* pThis, uint8_t preambule);
 static uint32_t lxmode_send_data_blocks(modem_context_t* pThis);
 static bool lxmode_build_and_send_one_data_block(modem_context_t* pThis, uint8_t blkNo, uint32_t defaultBlksize, bool withCrc,
         uint32_t* nbEmitted);
+static void lxmode_reemit_previous_block(modem_context_t* pThis);
 
 uint32_t lxmodem_emit(modem_context_t* pThis)
 {
@@ -110,13 +111,21 @@ static uint32_t lxmode_send_data_blocks(modem_context_t* pThis)
     uint32_t retry;
     uint32_t timeout;
     bool bAckReceived;
+    bool isLastBlock;
 
     timeout = 0;
     retry = 0;
 
     while (!bFinished)
     {
-        bFinished = lxmode_build_and_send_one_data_block(pThis, blkNo, defaultBlksize, withCrc, &nbEmitted);
+        if (retry == 0)
+        {
+            isLastBlock = lxmode_build_and_send_one_data_block(pThis, blkNo, defaultBlksize, withCrc, &nbEmitted);
+        }
+        else
+        {
+            lxmode_reemit_previous_block(pThis);
+        }
 
         bAckReceived = false;
         timeout = 0;
@@ -132,9 +141,13 @@ static uint32_t lxmode_send_data_blocks(modem_context_t* pThis)
             {
                 case ACK:
                     blkNo++;
-                    if (!bFinished)
+                    if (isLastBlock == false)
                     {
                         emittedBytes += nbEmitted;
+                    }
+                    else
+                    {
+                        bFinished = true;//we have send the last block
                     }
                     retry = 0;
                     break;
@@ -184,9 +197,9 @@ bool lxmode_build_and_send_one_data_block(modem_context_t* pThis, uint8_t blkNo,
     bytesToRead = min(defaultBlksize, remainingBytes);
     if (bytesToRead == 0)
     {
-        uint8_t endTransfert;
-        endTransfert = EOT;
-        lmodem_putchar(pThis,  &endTransfert, 1);
+        pThis->blk_buffer.buffer[0] = EOT;
+        lmodem_putchar(pThis,  pThis->blk_buffer.buffer, 1);
+        pThis->blk_buffer_current_size = 1;
     }
     else
     {
@@ -228,8 +241,15 @@ bool lxmode_build_and_send_one_data_block(modem_context_t* pThis, uint8_t blkNo,
         }
 
         lmodem_putchar(pThis,  pThis->blk_buffer.buffer, datablockSize);
+        pThis->blk_buffer_current_size = datablockSize;
         *nbEmitted += effectiveBlksize;
     }
 
     return (bytesToRead == 0) ? true : false;
 }
+
+void lxmode_reemit_previous_block(modem_context_t* pThis)
+{
+    lmodem_putchar(pThis,  pThis->blk_buffer.buffer, pThis->blk_buffer_current_size);
+}
+

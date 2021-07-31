@@ -38,6 +38,7 @@ struct modem_context
     crc16_context_t crc16;
     lxmodem_opts opts;
     lmodem_buffer blk_buffer;
+    uint32_t blk_buffer_current_size;
     lmodem_buffer ramfile;
     bool withCrc;
     bool (*getchar)(modem_context_t* pThis, uint8_t* data, uint32_t size);
