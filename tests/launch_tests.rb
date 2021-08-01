@@ -21,7 +21,10 @@ def launch_socat_process
       $pts.append $1
     end
   end
-  
+end
+
+def delete_socat_process
+  `killall socat`
 end
 
 def process_test(options_tx, options_rx, send_file, expected_file, result_file)
@@ -29,15 +32,15 @@ def process_test(options_tx, options_rx, send_file, expected_file, result_file)
   bResult = false
   puts 'launch emission process'
   $emission_process = fork do 
-    puts "#{RZSZ_EXEC} --protocol 0 --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
-    exec "#{RZSZ_EXEC} --protocol 0 --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
+    puts "#{RZSZ_EXEC} --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
+    exec "#{RZSZ_EXEC} --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
   end
   Process.detach $emission_process
 
-  puts 'launch reception'
   sleep(1)
-  puts "#{RZSZ_EXEC} --protocol 0 --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1"
-  reception = `#{RZSZ_EXEC} --protocol 0 --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1`
+  puts 'launch reception'
+  puts "#{RZSZ_EXEC} --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1"
+  reception = `#{RZSZ_EXEC} --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1`
   
   reception_status_code = $?
   if reception_status_code.exitstatus.zero?
@@ -56,33 +59,65 @@ def process_test(options_tx, options_rx, send_file, expected_file, result_file)
   bResult
 end
 
-`rm -f socat.log emission.log reception.log #{LOG_FILE} `
-`rm -rf tests_results/*`
 
-launch_socat_process
-sleep(1)
-
-
-s = true
-s = process_test("", "", "files/test_00128bytes.txt", "files/test_00128bytes.txt", "tests_results/1-test_00128bytes.txt") if (s)
-s = process_test("", "", "files/test_01254bytes.txt", "expected_results/test_blksize_128_01280bytes.txt", "tests_results/2-test_01254bytes.txt") if (s)
-s = process_test("", "", "files/test_32800bytes.txt", "expected_results/test_blksize_128_32800bytes.txt", "tests_results/3-test_32800bytes.txt")  if (s)
-s = process_test("", "", "files/test_263000bytes.bin", "expected_results/test_blksize_128_263000bytes.bin", "tests_results/4-test_263000bytes.bin") if (s)
-
-s = process_test("--crc", "--crc", "files/test_00128bytes.txt", "files/test_00128bytes.txt", "tests_results/5-test_00128bytes.txt") if (s)
-s = process_test("--crc", "--crc", "files/test_01254bytes.txt", "expected_results/test_blksize_128_01280bytes.txt", "tests_results/6-test_01254bytes.txt") if (s)
-s = process_test("--crc", "--crc", "files/test_32800bytes.txt", "expected_results/test_blksize_128_32800bytes.txt", "tests_results/7-test_32800bytes.txt")  if (s)
-s = process_test("--crc", "--crc", "files/test_263000bytes.bin", "expected_results/test_blksize_128_263000bytes.bin", "tests_results/8-test_263000bytes.bin") if (s)
-
-s = process_test("--1k", "--1k", "files/test_00128bytes.txt", "files/test_00128bytes.txt", "tests_results/9-test_00128bytes.txt") if (s)
-s = process_test("--1k", "--1k", "files/test_01254bytes.txt", "expected_results/test_blksize_1024_01254bytes.txt", "tests_results/10-test_01254bytes.txt") if (s)
-s = process_test("--1k", "--1k", "files/test_32800bytes.txt", "expected_results/test_blksize_128_32800bytes.txt", "tests_results/11-test_32800bytes.txt")  if (s)
-s = process_test("--1k", "--1k", "files/test_263000bytes.bin", "expected_results/test_blksize_1024_263000bytes.bin", "tests_results/12-test_263000bytes.bin") if (s)
-
-`killall socat`
-
-if (s)
-  exit(0)
+def delete_all_previous_log_file
+  `rm -f socat.log emission.log reception.log #{LOG_FILE} `
+  `rm -f tests_results/*`
+  `touch tests_results/KEEP`
 end
 
-exit(1)
+$nominal_tests = Array.new
+$nominal_tests = [
+{ options_tx: "--protocol 0 ", options_rx: "--protocol 0", 
+  send_file: "files/test_00128bytes.txt", expected_file: "files/test_00128bytes.txt", result_file: "tests_results/1-test_00128bytes.txt" },
+{ options_tx: "--protocol 0", options_rx: "--protocol 0", 
+  send_file: "files/test_01254bytes.txt", expected_file: "expected_results/test_blksize_128_01280bytes.txt", result_file: "tests_results/2-test_01254bytes.txt" },
+{ options_tx: "", options_rx: "", send_file: "files/test_32800bytes.txt", expected_file: "expected_results/test_blksize_128_32800bytes.txt", result_file: "tests_results/3-test_32800bytes.txt" },
+{ options_tx: "", options_rx: "", 
+  send_file: "files/test_263000bytes.bin", expected_file: "expected_results/test_blksize_128_263000bytes.bin", result_file: "tests_results/4-test_263000bytes.bin" },
+ 
+{ options_tx: "--protocol 0 --crc", options_rx: "--protocol 0 --crc", 
+  send_file: "files/test_00128bytes.txt", expected_file: "files/test_00128bytes.txt", result_file: "tests_results/5-test_00128bytes.txt" },
+{ options_tx: "--protocol 0 --crc", options_rx: "--protocol 0 --crc", 
+  send_file: "files/test_01254bytes.txt", expected_file: "expected_results/test_blksize_128_01280bytes.txt", result_file: "tests_results/6-test_01254bytes.txt" },
+{ options_tx: "--protocol 0 --crc", options_rx: "--protocol 0 --crc", 
+  send_file: "files/test_32800bytes.txt", expected_file: "expected_results/test_blksize_128_32800bytes.txt", result_file: "tests_results/7-test_32800bytes.txt" },
+{ options_tx: "--protocol 0 --crc", options_rx: "--protocol 0 --crc", 
+  send_file: "files/test_263000bytes.bin", expected_file: "expected_results/test_blksize_128_263000bytes.bin", result_file: "tests_results/8-test_263000bytes.bin" },
+  
+{ options_tx: "--protocol 0 --1k", options_rx: "--protocol 0 --1k", 
+  send_file: "files/test_00128bytes.txt", expected_file: "files/test_00128bytes.txt", result_file: "tests_results/9-test_00128bytes.txt" },
+{ options_tx: "--protocol 0 --1k", options_rx: "--protocol 0 --1k", 
+  send_file: "files/test_01254bytes.txt", expected_file: "expected_results/test_blksize_1024_01254bytes.txt", result_file: "tests_results/10-test_01254bytes.txt" },
+{ options_tx: "--protocol 0 --1k", options_rx: "--protocol 0 --1k", 
+  send_file: "files/test_32800bytes.txt", expected_file: "expected_results/test_blksize_128_32800bytes.txt", result_file: "tests_results/11-test_32800bytes.txt" },
+{ options_tx: "--protocol 0 --1k", options_rx: "--protocol 0 --1k", 
+  send_file: "files/test_263000bytes.bin", expected_file: "expected_results/test_blksize_1024_263000bytes.bin", result_file: "tests_results/12-test_263000bytes.bin" }
+]
+
+
+def main
+
+  delete_all_previous_log_file
+  launch_socat_process
+
+  sleep(1)
+
+  s = true
+  $nominal_tests.each do |test|
+    s = process_test(test[:options_tx], test[:options_rx], test[:send_file], test[:expected_file], test[:result_file]) if (s)
+  end
+
+  delete_socat_process
+
+  if (s)
+    puts "all tests ok"
+    exit(0)
+  end
+
+  puts "at least one test failed"
+  exit(1)
+end
+
+
+main

@@ -54,13 +54,13 @@ struct modem_context
 extern void lmodem_init(modem_context_t* pThis, lxmodem_opts opts);
 extern void lmodem_set_putchar_cb(modem_context_t* pThis, void (*putchar)(modem_context_t* pThis, uint8_t* data, uint32_t size));
 extern void lmodem_set_getchar_cb(modem_context_t* pThis, bool (*getchar)(modem_context_t* pThis, uint8_t* data, uint32_t size));
-extern bool lmodem_set_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
+extern bool lmodem_set_line_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 extern void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 
 extern int32_t lxmodem_receive(modem_context_t* pThis);
 extern int32_t lxmodem_emit(modem_context_t* pThis);
 
-extern bool lmodem_set_write_offset(lmodem_buffer* pThis, uint32_t newWriteOffset);
+extern bool lmodem_buffer_set_write_offset(lmodem_buffer* pThis, uint32_t newWriteOffset);
 extern int32_t lmodem_buffer_read(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);
 extern int32_t lmodem_buffer_write(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);
 

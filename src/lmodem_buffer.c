@@ -64,7 +64,7 @@ int32_t lmodem_buffer_read(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size)
 }
 
 
-bool lmodem_set_write_offset(lmodem_buffer* pThis, uint32_t newWriteOffset)
+bool lmodem_buffer_set_write_offset(lmodem_buffer* pThis, uint32_t newWriteOffset)
 {
     bool b;
     b = true;

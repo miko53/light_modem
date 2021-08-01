@@ -78,6 +78,8 @@ static uint8_t xmodem_recvFile[BUFFER_FILE_SIZE];
 static bool parse_options(int argc, char* argv[]);
 static bool serial_getchar(modem_context_t* pThis, uint8_t* data, uint32_t size);
 static void serial_putchar(modem_context_t* pThis, uint8_t* data, uint32_t size);
+int do_file_transmission(void);
+int do_file_reception(void);
 
 int main(int argc, char* argv[])
 {
@@ -119,7 +121,7 @@ int main(int argc, char* argv[])
     assert(xmodem_buffer != NULL);
 
     lmodem_init(&xmodem_ctx, xmodem_opts);
-    bOk = lmodem_set_buffer(&xmodem_ctx, xmodem_buffer, xmodem_buffer_size);
+    bOk = lmodem_set_line_buffer(&xmodem_ctx, xmodem_buffer, xmodem_buffer_size);
     if (!bOk)
     {
         fprintf(stdout, "internal error\n");
@@ -128,71 +130,17 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-
     lmodem_set_getchar_cb(&xmodem_ctx, serial_getchar);
     lmodem_set_putchar_cb(&xmodem_ctx, serial_putchar);
 
     if (options.rx)
     {
-        int32_t nbBytesReceived;
-        exit_code = EXIT_FAILURE;
-        lmodem_set_file_buffer(&xmodem_ctx, xmodem_recvFile, BUFFER_FILE_SIZE);
-
-        FILE* f = fopen(options.filename, "w");
-        if (f != NULL)
-        {
-            nbBytesReceived = lxmodem_receive(&xmodem_ctx);
-            fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
-            if (nbBytesReceived >= 0)
-            {
-                exit_code = EXIT_SUCCESS;
-                fwrite(xmodem_ctx.ramfile.buffer, 1, xmodem_ctx.ramfile.write_offset, f);
-            }
-            fclose(f);
-        }
-        else
-        {
-            fprintf(stdout, "unable to open file '%s'\n", options.filename);
-        }
+        exit_code = do_file_reception();
     }
 
     if (options.tx)
     {
-        exit_code = EXIT_FAILURE;
-        struct stat fileStat;
-        int r;
-        r = stat(options.filename, &fileStat);
-        if (r == 0)
-        {
-            fprintf(stdout, "file size = %ld\n", fileStat.st_size);
-            FILE* f = fopen(options.filename, "r");
-            if (f != NULL)
-            {
-                uint8_t* datafile = malloc(fileStat.st_size);
-                uint32_t nbRead;
-                int32_t nbBytesEmitted;
-                bool b;
-                nbRead = fread(datafile, fileStat.st_size, 1, f);
-                fprintf(stdout, "nbBlockRead = %d\n", nbRead);
-
-                lmodem_set_file_buffer(&xmodem_ctx, datafile, fileStat.st_size);
-                b = lmodem_set_write_offset(&xmodem_ctx.ramfile, fileStat.st_size);
-                assert(b == true);
-
-                nbBytesEmitted = lxmodem_emit(&xmodem_ctx);
-                fprintf(stdout, "nbBytesEmitted = %d\n", nbBytesEmitted);
-                free(datafile);
-                if (nbBytesEmitted >= 0)
-                {
-                    exit_code = EXIT_SUCCESS;
-                }
-            }
-        }
-        else
-        {
-            fprintf(stdout, "unable to open file '%s'\n", options.filename);
-        }
-
+        exit_code = do_file_transmission();
     }
 
     serial_close(serial_fd);
@@ -348,7 +296,6 @@ static bool parse_options(int argc, char* argv[])
     return bOk;
 }
 
-
 bool serial_getchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
 {
     (void) pThis;
@@ -359,4 +306,71 @@ void serial_putchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
 {
     (void) pThis;
     serial_write(serial_fd, data, size);
+}
+
+int do_file_transmission(void)
+{
+    int exit_code;
+    exit_code = EXIT_FAILURE;
+    struct stat fileStat;
+    int r;
+    r = stat(options.filename, &fileStat);
+    if (r == 0)
+    {
+        fprintf(stdout, "file size = %ld\n", fileStat.st_size);
+        FILE* f = fopen(options.filename, "r");
+        if (f != NULL)
+        {
+            uint8_t* datafile = malloc(fileStat.st_size);
+            uint32_t nbRead;
+            int32_t nbBytesEmitted;
+            bool b;
+            nbRead = fread(datafile, fileStat.st_size, 1, f);
+            fprintf(stdout, "nbBlockRead = %d\n", nbRead);
+
+            lmodem_set_file_buffer(&xmodem_ctx, datafile, fileStat.st_size);
+            b = lmodem_buffer_set_write_offset(&xmodem_ctx.ramfile, fileStat.st_size);
+            assert(b == true);
+
+            nbBytesEmitted = lxmodem_emit(&xmodem_ctx);
+            fprintf(stdout, "nbBytesEmitted = %d\n", nbBytesEmitted);
+            free(datafile);
+            if (nbBytesEmitted >= 0)
+            {
+                exit_code = EXIT_SUCCESS;
+            }
+        }
+    }
+    else
+    {
+        fprintf(stdout, "unable to open file '%s'\n", options.filename);
+    }
+    return exit_code;
+}
+
+
+int do_file_reception()
+{
+    int exit_code;
+    int32_t nbBytesReceived;
+    exit_code = EXIT_FAILURE;
+    lmodem_set_file_buffer(&xmodem_ctx, xmodem_recvFile, BUFFER_FILE_SIZE);
+
+    FILE* f = fopen(options.filename, "w");
+    if (f != NULL)
+    {
+        nbBytesReceived = lxmodem_receive(&xmodem_ctx);
+        fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
+        if (nbBytesReceived >= 0)
+        {
+            exit_code = EXIT_SUCCESS;
+            fwrite(xmodem_ctx.ramfile.buffer, 1, xmodem_ctx.ramfile.write_offset, f);
+        }
+        fclose(f);
+    }
+    else
+    {
+        fprintf(stdout, "unable to open file '%s'\n", options.filename);
+    }
+    return exit_code;
 }

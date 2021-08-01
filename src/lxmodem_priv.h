@@ -7,6 +7,12 @@
 #define LXMODEM_CRC16_INIT_VALUE       (0)
 #define LXMODEM_CRC16_XOR_FINAL        (0)
 
+#define LXMODEM_HEADER_SIZE            (2)
+#define LXMODEM_CHKSUM_SIZE            (1)
+#define LXMODEM_CRC16_SIZE             (2)
+#define LXMODEM_BLOCK_SIZE_128         (128)
+#define LXMODEM_BLOCK_SIZE_1024        (1024)
+
 
 #define MODEM_TRACE
 #ifdef MODEM_TRACE
