@@ -122,6 +122,17 @@ int32_t lxmodem_receive(modem_context_t* pThis)
                 }
             }
         }
+        else
+        {
+            nbRetry++;
+            if (nbRetry >= 10)
+            {
+                receivedBytes = -1;
+                bFinished = true;
+                lxmodem_build_and_send_cancel(pThis);
+                DBG("max retry reached -> abort\n");
+            }
+        }
     }
 
     return receivedBytes;
