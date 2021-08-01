@@ -28,15 +28,9 @@ typedef enum
     OPTS_UNKNOWN = '?'
 } OPTS;
 
-typedef enum
-{
-    XMODEM,
-    YMODEM
-} PROTOCOL;
-
 typedef struct
 {
-    PROTOCOL protocol;
+    lmodem_protocol protocol;
     char* device;
     uint32_t speed;
     uint32_t parity;
@@ -100,27 +94,34 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
-    lxmodem_opts xmodem_opts;
-    if (options.xmodem_blksize > 0)
+    lxmodem_opts xmodem_opts = 0;
+    if (options.protocol == XMODEM)
     {
-        xmodem_opts = lxmodem_1k;
+        if (options.xmodem_blksize > 0)
+        {
+            xmodem_opts = lxmodem_1k;
+            xmodem_buffer_size = LXMODEM_1K_BUFFER_MIN_SIZE;
+        }
+        else if (options.crc > 0)
+        {
+            xmodem_opts = lxmodem_128_with_crc;
+            xmodem_buffer_size = LXMODEM_128_CRC_BUFFER_MIN_SIZE;
+        }
+        else
+        {
+            xmodem_opts = lxmodem_128_with_chksum;
+            xmodem_buffer_size = LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE;
+        }
+    }
+    else if (options.protocol == YMODEM)
+    {
         xmodem_buffer_size = LXMODEM_1K_BUFFER_MIN_SIZE;
     }
-    else if (options.crc > 0)
-    {
-        xmodem_opts = lxmodem_128_with_crc;
-        xmodem_buffer_size = LXMODEM_128_CRC_BUFFER_MIN_SIZE;
-    }
-    else
-    {
-        xmodem_opts = lxmodem_128_with_chksum;
-        xmodem_buffer_size = LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE;
-    }
 
+    lmodem_init(&xmodem_ctx, xmodem_opts);
     xmodem_buffer = malloc(xmodem_buffer_size);
     assert(xmodem_buffer != NULL);
 
-    lmodem_init(&xmodem_ctx, xmodem_opts);
     bOk = lmodem_set_line_buffer(&xmodem_ctx, xmodem_buffer, xmodem_buffer_size);
     if (!bOk)
     {
@@ -332,7 +333,7 @@ int do_file_transmission(void)
             b = lmodem_buffer_set_write_offset(&xmodem_ctx.ramfile, fileStat.st_size);
             assert(b == true);
 
-            nbBytesEmitted = lxmodem_emit(&xmodem_ctx);
+            nbBytesEmitted = lmodem_emit(&xmodem_ctx, options.protocol);
             fprintf(stdout, "nbBytesEmitted = %d\n", nbBytesEmitted);
             free(datafile);
             if (nbBytesEmitted >= 0)
@@ -359,12 +360,12 @@ int do_file_reception()
     FILE* f = fopen(options.filename, "w");
     if (f != NULL)
     {
-        nbBytesReceived = lxmodem_receive(&xmodem_ctx);
+        nbBytesReceived = lmodem_receive(&xmodem_ctx, options.protocol);
         fprintf(stdout, "> %d bytes received\n", nbBytesReceived);
         if (nbBytesReceived >= 0)
         {
-            exit_code = EXIT_SUCCESS;
             fwrite(xmodem_ctx.ramfile.buffer, 1, xmodem_ctx.ramfile.write_offset, f);
+            exit_code = EXIT_SUCCESS;
         }
         fclose(f);
     }

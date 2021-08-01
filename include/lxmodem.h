@@ -18,9 +18,15 @@ extern "C" {
 
 typedef enum
 {
+    XMODEM,
+    YMODEM
+} lmodem_protocol;
+
+typedef enum
+{
     lxmodem_128_with_chksum,
     lxmodem_128_with_crc,
-    lxmodem_1k
+    lxmodem_1k,
 } lxmodem_opts;
 
 typedef struct modem_context modem_context_t;
@@ -42,6 +48,7 @@ typedef struct
 
 struct modem_context
 {
+    lmodem_protocol protocol;
     crc16_context_t crc16;
     lxmodem_opts opts;
     lmodem_linebuffer blk_buffer;
@@ -57,8 +64,8 @@ extern void lmodem_set_getchar_cb(modem_context_t* pThis, bool (*getchar)(modem_
 extern bool lmodem_set_line_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 extern void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 
-extern int32_t lxmodem_receive(modem_context_t* pThis);
-extern int32_t lxmodem_emit(modem_context_t* pThis);
+extern int32_t lmodem_receive(modem_context_t* pThis, lmodem_protocol protocol);
+extern int32_t lmodem_emit(modem_context_t* pThis, lmodem_protocol protocol);
 
 extern bool lmodem_buffer_set_write_offset(lmodem_buffer* pThis, uint32_t newWriteOffset);
 extern int32_t lmodem_buffer_read(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);

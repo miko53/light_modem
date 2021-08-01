@@ -11,6 +11,8 @@ typedef enum
     LXMODEM_RECV_ERROR
 } lxmodem_reception_status;
 
+static int32_t lxmodem_receive(modem_context_t* pThis);
+static int32_t lymodem_receive(modem_context_t* pThis);
 static void lxmodem_build_and_send_preambule(modem_context_t* pThis);
 static lxmodem_reception_status lxmodem_receive_block(modem_context_t* pThis, uint8_t expectedBlkNumber, uint32_t expectedBlksize);
 static lxmodem_reception_status lxmodem_check_block_no_and_crc(modem_context_t* pThis, uint8_t expectedBlkNumber,
@@ -18,7 +20,31 @@ static lxmodem_reception_status lxmodem_check_block_no_and_crc(modem_context_t* 
 static lxmodem_reception_status lxmodem_check_crc(modem_context_t* pThis, uint32_t requestedBlksize);
 static void lxmodem_build_and_send_reply(modem_context_t* pThis, lxmodem_reception_status rcvStatus);
 
-int32_t lxmodem_receive(modem_context_t* pThis)
+int32_t lmodem_receive(modem_context_t* pThis, lmodem_protocol protocol)
+{
+    int32_t receivedBytes;
+    receivedBytes = -1;
+
+    pThis->protocol = protocol;
+    switch (protocol)
+    {
+        case XMODEM:
+            receivedBytes = lxmodem_receive(pThis);
+            break;
+
+        case YMODEM:
+            receivedBytes = lymodem_receive(pThis);
+            break;
+
+        default:
+            break;
+    }
+
+    return receivedBytes;
+}
+
+
+static int32_t lxmodem_receive(modem_context_t* pThis)
 {
     uint32_t receivedBytes;
     bool bFinished;
@@ -59,7 +85,7 @@ int32_t lxmodem_receive(modem_context_t* pThis)
                     //read 1k blzsize
                     canCharReceived = 0;
                     DBG("request 1k\n");
-                    if (pThis->opts == lxmodem_1k)
+                    if ((pThis->opts == lxmodem_1k) || (pThis->protocol == YMODEM))
                     {
                         blksize = LXMODEM_BLOCK_SIZE_1024;
                         rcvStatus = lxmodem_receive_block(pThis, expectedBlkNumber, blksize);
@@ -142,20 +168,27 @@ void lxmodem_build_and_send_preambule(modem_context_t* pThis)
 {
     char p;
 
-    switch (pThis->opts)
+    if (pThis->protocol == XMODEM)
     {
-        case lxmodem_128_with_chksum:
-            p = NAK;
-            break;
+        switch (pThis->opts)
+        {
+            case lxmodem_128_with_chksum:
+                p = NAK;
+                break;
 
-        case lxmodem_128_with_crc:
-        case lxmodem_1k:
-            p = 'C';
-            break;
+            case lxmodem_128_with_crc:
+            case lxmodem_1k:
+                p = 'C';
+                break;
 
-        default:
-            p = NAK;
-            break;
+            default:
+                p = NAK;
+                break;
+        }
+    }
+    else if (pThis->protocol == YMODEM)
+    {
+        p = 'C';
     }
 
     lmodem_putchar(pThis, (uint8_t*) &p, 1);
@@ -170,7 +203,7 @@ static lxmodem_reception_status lxmodem_receive_block(modem_context_t* pThis, ui
     blockCorrectlyRetrieved = LXMODEM_RECV_ERROR;
     requestedData = requestedBlksize + LXMODEM_HEADER_SIZE;
 
-    if ((pThis->withCrc == true) || (requestedBlksize > LXMODEM_BLOCK_SIZE_128))
+    if ((pThis->withCrc == true) || (pThis->protocol == YMODEM) || (requestedBlksize > LXMODEM_BLOCK_SIZE_128))
     {
         requestedData += LXMODEM_CRC16_SIZE;
     }
@@ -243,7 +276,7 @@ static lxmodem_reception_status lxmodem_check_crc(modem_context_t* pThis, uint32
     lxmodem_reception_status crcOrChecksumOk;
     crcOrChecksumOk = LXMODEM_RECV_ERROR;
 
-    if ((pThis->withCrc == true) || (requestedBlksize > LXMODEM_BLOCK_SIZE_128))
+    if ((pThis->withCrc == true) || (pThis->protocol == YMODEM) || (requestedBlksize > LXMODEM_BLOCK_SIZE_128))
     {
         uint16_t crc;
         uint8_t hiCrc;
@@ -259,6 +292,10 @@ static lxmodem_reception_status lxmodem_check_crc(modem_context_t* pThis, uint32
         {
             DBG("crc ok for block %d\n", pThis->blk_buffer.buffer[0]);
             crcOrChecksumOk = LXMODEM_RECV_OK;
+        }
+        else
+        {
+            DBG("wrong crc: calculated: 0x%.2x, received: 0x%.2x\n", crc,  ((hiCrc << 8) | loCrc));
         }
     }
     else
@@ -294,4 +331,136 @@ void lxmodem_build_and_send_cancel(modem_context_t* pThis)
     buffer[0] = CAN;
     buffer[1] = CAN;
     lmodem_putchar(pThis, buffer, 2);
+}
+
+static lxmodem_reception_status lymodem_receive_block0(modem_context_t* pThis, uint32_t blksize);
+static void lymodem_block_next_file(modem_context_t* pThis);
+
+static int32_t lymodem_receive(modem_context_t* pThis)
+{
+    uint32_t timeout;
+    uint8_t startBlock0;
+    bool bReceived;
+    uint32_t receivedBytes;
+    lxmodem_reception_status rxStatus;
+
+    rxStatus = LXMODEM_RECV_ERROR;
+    receivedBytes = -1;
+
+    lxmodem_build_and_send_preambule(pThis);
+
+    bReceived = false;
+    timeout = 0;
+    while ((bReceived == false) && (timeout < 10))
+    {
+        //wait preambule
+        bReceived = lmodem_getchar(pThis, &startBlock0, 1);
+        if (bReceived)
+        {
+            switch (startBlock0)
+            {
+                case SOH:
+                    rxStatus = lymodem_receive_block0(pThis, 128);
+                    break;
+
+                case STX:
+                    rxStatus = lymodem_receive_block0(pThis, 1024);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+        timeout++;
+    }
+
+    if (rxStatus == LXMODEM_RECV_OK)
+    {
+        receivedBytes = lxmodem_receive(pThis);
+    }
+
+    //dont accept another file...
+    lymodem_block_next_file(pThis);
+
+    return receivedBytes;
+}
+
+static lxmodem_reception_status lymodem_receive_block0(modem_context_t* pThis, uint32_t blksize)
+{
+    bool bReceived;
+    bool bFinished;
+    uint32_t retry;
+    bReceived = false;
+    bFinished = false;
+    lxmodem_reception_status rxStatus;
+
+    retry = 0;
+    while (bFinished == false)
+    {
+        bReceived = lmodem_getchar(pThis, pThis->blk_buffer.buffer, 2 + blksize + 2);
+        if (bReceived == true)
+        {
+            rxStatus = lxmodem_check_block_no_and_crc(pThis, 0, blksize);
+            lxmodem_build_and_send_reply(pThis, rxStatus);
+            if (rxStatus == LXMODEM_RECV_OK)
+            {
+                bFinished = true;
+                break;
+            }
+            else
+            {
+                retry++;
+                if (retry >= 10)
+                {
+                    lxmodem_build_and_send_cancel(pThis);
+                    bFinished = true;
+                }
+            }
+        }
+    }
+
+    return rxStatus;
+}
+
+static void lymodem_block_next_file(modem_context_t* pThis)
+{
+    uint8_t startBlock0;
+    uint32_t timeout;
+    bool bReceived;
+
+    lxmodem_build_and_send_preambule(pThis);
+    bReceived = false;
+    timeout = 0;
+    while ((bReceived == false) && (timeout < 10))
+    {
+        bReceived = lmodem_getchar(pThis, &startBlock0, 1);
+        if (bReceived == true)
+        {
+            switch (startBlock0)
+            {
+                case SOH:
+                    bReceived = lmodem_getchar(pThis, pThis->blk_buffer.buffer, 128 + 2 + 2);
+                    break;
+
+                case STX:
+                    bReceived = lmodem_getchar(pThis, pThis->blk_buffer.buffer, 1024 + 2 + 2);
+                    break;
+                default:
+                    break;
+            }
+
+            if (bReceived == true)
+            {
+                if (pThis->blk_buffer.buffer[2] == '\0')
+                {
+                    lxmodem_build_and_send_reply(pThis, LXMODEM_RECV_OK);
+                }
+                else
+                {
+                    lxmodem_build_and_send_cancel(pThis);
+                }
+            }
+        }
+        timeout++;
+    }
 }

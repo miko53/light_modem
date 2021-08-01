@@ -3,13 +3,40 @@
 #include "lmodem_buffer.h"
 #include <string.h>
 
+static  int32_t lxmodem_emit(modem_context_t* pThis);
+static int32_t lymodem_emit(modem_context_t* pThis);
 static bool lxmodem_decode_preambule(modem_context_t* pThis, uint8_t preambule);
 static int32_t lxmode_send_data_blocks(modem_context_t* pThis);
 static bool lxmode_build_and_send_one_data_block(modem_context_t* pThis, uint8_t blkNo, uint32_t defaultBlksize, bool withCrc,
         int32_t* nbEmitted);
 static void lxmode_reemit_previous_block(modem_context_t* pThis);
 
-int32_t lxmodem_emit(modem_context_t* pThis)
+
+int32_t lmodem_emit(modem_context_t* pThis, lmodem_protocol protocol)
+{
+    int32_t emittedBytes;
+    emittedBytes = -1;
+
+    pThis->protocol = protocol;
+    switch (protocol)
+    {
+        case XMODEM:
+            emittedBytes = lxmodem_emit(pThis);
+            break;
+
+        case YMODEM:
+            emittedBytes = lymodem_emit(pThis);
+            break;
+
+        default:
+            break;
+    }
+
+    return emittedBytes;
+}
+
+
+static int32_t lxmodem_emit(modem_context_t* pThis)
 {
     uint32_t timeout;
     uint32_t emittedBytes;
@@ -253,3 +280,25 @@ void lxmode_reemit_previous_block(modem_context_t* pThis)
     lmodem_putchar(pThis,  pThis->blk_buffer.buffer, pThis->blk_buffer.current_size);
 }
 
+static int32_t lymodem_emit(modem_context_t* pThis)
+{
+    uint32_t timeout;
+    uint8_t block0;
+    bool bReceived;
+
+    bReceived = false;
+    timeout = 0;
+    while ((bReceived == false) && (timeout < 10))
+    {
+        //wait preambule
+        bReceived = lmodem_getchar(pThis, &block0, 1);
+        if (bReceived)
+        {
+            break;
+        }
+        timeout++;
+    }
+
+
+    return -1;
+}

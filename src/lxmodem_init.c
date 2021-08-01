@@ -10,10 +10,10 @@ void lmodem_init(modem_context_t* pThis, lxmodem_opts opts)
 {
     memset(pThis, 0, sizeof(modem_context_t));
     pThis->opts = opts;
-    if ((opts == lxmodem_128_with_crc) || (opts == lxmodem_1k))
-    {
-        crc16_init(&pThis->crc16, LXMODEM_CRC16_CCITT_POLYNOME);
-    }
+    //if ((opts == lxmodem_128_with_crc) || (opts == lxmodem_1k))
+    //{
+    crc16_init(&pThis->crc16, LXMODEM_CRC16_CCITT_POLYNOME);
+    //}
 }
 
 
