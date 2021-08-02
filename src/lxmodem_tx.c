@@ -10,6 +10,8 @@ static int32_t lxmode_send_data_blocks(modem_context_t* pThis);
 static bool lxmode_build_and_send_one_data_block(modem_context_t* pThis, uint8_t blkNo, uint32_t defaultBlksize, bool withCrc,
         int32_t* nbEmitted);
 static void lxmode_reemit_previous_block(modem_context_t* pThis);
+static bool lymodem_build_and_send_block0(modem_context_t* pThis);
+static void lymodem_send_end_of_bach(modem_context_t* pThis);
 
 
 int32_t lmodem_emit(modem_context_t* pThis, lmodem_protocol protocol)
@@ -289,8 +291,6 @@ void lxmode_reemit_previous_block(modem_context_t* pThis)
     lmodem_putchar(pThis,  pThis->blk_buffer.buffer, pThis->blk_buffer.current_size);
 }
 
-bool lymodem_build_and_send_block0(modem_context_t* pThis);
-void lymodem_send_end_of_bach(modem_context_t* pThis);
 
 static int32_t lymodem_emit(modem_context_t* pThis)
 {
@@ -493,7 +493,6 @@ bool lymodem_build_and_send_block0(modem_context_t* pThis)
 
     return bOk;
 }
-
 
 void lymodem_send_end_of_bach(modem_context_t* pThis)
 {

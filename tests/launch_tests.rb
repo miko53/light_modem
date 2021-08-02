@@ -66,8 +66,8 @@ def delete_all_previous_log_file
   `touch tests_results/KEEP`
 end
 
-$nominal_tests = Array.new
-$nominal_tests = [
+$nominal_tests_xmodem = Array.new
+$nominal_tests_xmodem = [
 { options_tx: "--protocol 0 ", options_rx: "--protocol 0", 
   send_file: "files/test_00128bytes.txt", expected_file: "files/test_00128bytes.txt", result_file: "tests_results/1-test_00128bytes.txt" },
 { options_tx: "--protocol 0", options_rx: "--protocol 0", 
@@ -95,7 +95,17 @@ $nominal_tests = [
   send_file: "files/test_263000bytes.bin", expected_file: "expected_results/test_blksize_1024_263000bytes.bin", result_file: "tests_results/12-test_263000bytes.bin" }
 ]
 
-
+$nominal_tests_ymodem = [
+{ options_tx: "--protocol 1", options_rx: "--protocol 1", 
+  send_file: "files/test_00128bytes.txt", expected_file: "files/test_00128bytes.txt", result_file: "tests_results/13-test_00128bytes.txt" },
+{ options_tx: "--protocol 1", options_rx: "--protocol 1", 
+  send_file: "files/test_01254bytes.txt", expected_file: "files/test_01254bytes.txt", result_file: "tests_results/14-test_01254bytes.txt" },
+{ options_tx: "--protocol 1", options_rx: "--protocol 1", 
+  send_file: "files/test_32800bytes.txt", expected_file: "files/test_32800bytes.txt", result_file: "tests_results/15-test_32800bytes.txt" },
+{ options_tx: "--protocol 1", options_rx: "--protocol 1", 
+  send_file: "files/test_263000bytes.bin", expected_file: "files/test_263000bytes.bin", result_file: "tests_results/16-test_263000bytes.bin" }
+]
+    
 def main
 
   delete_all_previous_log_file
@@ -104,7 +114,11 @@ def main
   sleep(1)
 
   s = true
-  $nominal_tests.each do |test|
+  $nominal_tests_xmodem.each do |test|
+    s = process_test(test[:options_tx], test[:options_rx], test[:send_file], test[:expected_file], test[:result_file]) if (s)
+  end
+  
+  $nominal_tests_ymodem.each do |test|
     s = process_test(test[:options_tx], test[:options_rx], test[:send_file], test[:expected_file], test[:result_file]) if (s)
   end
 
