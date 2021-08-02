@@ -29,7 +29,6 @@ typedef enum
     lxmodem_1k,
 } lxmodem_opts;
 
-typedef struct modem_context modem_context_t;
 
 typedef struct
 {
@@ -46,6 +45,27 @@ typedef struct
     uint32_t max_size;
 } lmodem_linebuffer;
 
+
+#define LMODEM_METADATA_NB                   (5)
+#define LMODEM_METADATA_FILENAME_VALID    (0x01)
+#define LMODEM_METADATA_FILESIZE_VALID    (0x02)
+#define LMODEM_METADATA_MODIFDATE_VALID   (0x04)
+#define LMODEM_METADATA_PERMISSION_VALID  (0x08)
+#define LMODEM_METADATA_SERIAL_VALID      (0x10)
+
+typedef struct
+{
+    uint32_t valid;
+    char* filename;
+    uint32_t filename_size;
+    uint32_t size;
+    uint32_t modif_date;
+    uint16_t permission;
+    uint32_t serial_number;
+} lmodem_file_characteristics;
+
+typedef struct modem_context modem_context_t;
+
 struct modem_context
 {
     lmodem_protocol protocol;
@@ -53,6 +73,7 @@ struct modem_context
     lxmodem_opts opts;
     lmodem_linebuffer blk_buffer;
     lmodem_buffer ramfile;
+    lmodem_file_characteristics file_data;
     bool withCrc;
     bool (*getchar)(modem_context_t* pThis, uint8_t* data, uint32_t size);
     void (*putchar)(modem_context_t* pThis, uint8_t* data, uint32_t size);
@@ -63,6 +84,7 @@ extern void lmodem_set_putchar_cb(modem_context_t* pThis, void (*putchar)(modem_
 extern void lmodem_set_getchar_cb(modem_context_t* pThis, bool (*getchar)(modem_context_t* pThis, uint8_t* data, uint32_t size));
 extern bool lmodem_set_line_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
 extern void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t size);
+extern void lmodem_set_filename_buffer(modem_context_t* pThis, char* buffer, uint32_t size);
 
 extern int32_t lmodem_receive(modem_context_t* pThis, lmodem_protocol protocol);
 extern int32_t lmodem_emit(modem_context_t* pThis, lmodem_protocol protocol);

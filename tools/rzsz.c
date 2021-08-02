@@ -12,6 +12,8 @@
 #define XMODEM_BUFFER_BLK_SIZE (133)
 #define BUFFER_FILE_SIZE       (1024*1024)
 
+#define BUFFER_FILENAME_SIZE    (256)
+
 typedef enum
 {
     OPTS_PROTOCOL,
@@ -67,6 +69,8 @@ static int32_t serial_fd;
 static modem_context_t xmodem_ctx;
 static uint8_t* xmodem_buffer;
 static uint32_t xmodem_buffer_size;
+static char xmodem_filename_buffer[BUFFER_FILENAME_SIZE];
+
 static uint8_t xmodem_recvFile[BUFFER_FILE_SIZE];
 
 static bool parse_options(int argc, char* argv[]);
@@ -131,6 +135,7 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
     }
 
+    lmodem_set_filename_buffer(&xmodem_ctx, xmodem_filename_buffer, BUFFER_FILENAME_SIZE);
     lmodem_set_getchar_cb(&xmodem_ctx, serial_getchar);
     lmodem_set_putchar_cb(&xmodem_ctx, serial_putchar);
 

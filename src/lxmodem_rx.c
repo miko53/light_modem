@@ -3,6 +3,7 @@
 #include "lxmodem_priv.h"
 #include "lmodem_buffer.h"
 #include <assert.h>
+#include <stdlib.h>
 
 typedef enum
 {
@@ -19,6 +20,12 @@ static lxmodem_reception_status lxmodem_check_block_no_and_crc(modem_context_t* 
         uint32_t requestedBlksize);
 static lxmodem_reception_status lxmodem_check_crc(modem_context_t* pThis, uint32_t requestedBlksize);
 static void lxmodem_build_and_send_reply(modem_context_t* pThis, lxmodem_reception_status rcvStatus);
+bool lymodem_get_meta_data(modem_context_t* pThis);
+uint32_t lymodem_getValue(bool* isValid, char* pString, int32_t mode);
+static lxmodem_reception_status lymodem_receive_block0(modem_context_t* pThis, uint32_t blksize);
+static void lymodem_block_next_file(modem_context_t* pThis);
+bool lymodem_decode_block0(modem_context_t* pThis);
+char* lymodem_get_next_meta_data_string(char** pString, char* pEndString);
 
 int32_t lmodem_receive(modem_context_t* pThis, lmodem_protocol protocol)
 {
@@ -333,9 +340,6 @@ void lxmodem_build_and_send_cancel(modem_context_t* pThis)
     lmodem_putchar(pThis, buffer, 2);
 }
 
-static lxmodem_reception_status lymodem_receive_block0(modem_context_t* pThis, uint32_t blksize);
-static void lymodem_block_next_file(modem_context_t* pThis);
-
 static int32_t lymodem_receive(modem_context_t* pThis)
 {
     uint32_t timeout;
@@ -376,11 +380,23 @@ static int32_t lymodem_receive(modem_context_t* pThis)
 
     if (rxStatus == LXMODEM_RECV_OK)
     {
-        receivedBytes = lxmodem_receive(pThis);
+        bool bBlock0Ok;
+        bBlock0Ok = lymodem_decode_block0(pThis);
+        if (bBlock0Ok == true)
+        {
+            receivedBytes = lxmodem_receive(pThis);
+            //dont accept another file...
+            lymodem_block_next_file(pThis);
+        }
     }
 
-    //dont accept another file...
-    lymodem_block_next_file(pThis);
+    if (receivedBytes > 0)
+    {
+        if ((pThis->file_data.valid & LMODEM_METADATA_FILESIZE_VALID) == LMODEM_METADATA_FILESIZE_VALID)
+        {
+            lmodem_buffer_set_write_offset(&pThis->ramfile, pThis->file_data.size);
+        }
+    }
 
     return receivedBytes;
 }
@@ -463,4 +479,161 @@ static void lymodem_block_next_file(modem_context_t* pThis)
         }
         timeout++;
     }
+}
+
+void lmodem_metadata_clean(lmodem_file_characteristics* pMetaData)
+{
+    pMetaData->filename[0] = '\0';
+    pMetaData->modif_date = 0;
+    pMetaData->permission = 0;
+    pMetaData->serial_number = 0;
+    pMetaData->size = 0;
+    pMetaData->valid = 0;
+}
+
+bool lymodem_decode_block0(modem_context_t* pThis)
+{
+    char* pString;
+    bool bResult = false;
+    pString = (char*) (pThis->blk_buffer.buffer + 2);
+
+    lmodem_metadata_clean(&pThis->file_data);
+
+    if (*pString == '\0')
+    {
+        //no data
+        DBG("no filename '%s', end of bach\n", pThis->file_data.filename);
+        bResult = false;
+    }
+    else
+    {
+        strncpy(pThis->file_data.filename, pString, pThis->file_data.filename_size - 1);
+        pThis->file_data.filename[pThis->file_data.filename_size - 1] = '\0';
+        pThis->file_data.valid |= LMODEM_METADATA_FILENAME_VALID;
+
+        DBG("reception of file '%s'\n", pThis->file_data.filename);
+        bResult = lymodem_get_meta_data(pThis);
+    }
+    return bResult;
+}
+
+bool lymodem_get_meta_data(modem_context_t* pThis)
+{
+    char* pString;
+    char* pEndString;
+    bool bResult;
+
+    bResult = true;
+    //set pString at the end of filename
+    pString = (char*) (pThis->blk_buffer.buffer + 2 + strlen(pThis->file_data.filename));
+    pEndString = (pString + pThis->blk_buffer.max_size);
+
+    while ((*pString == '\0') && (pString < pEndString))
+    {
+        pString++;
+    }
+
+    if (pString < pEndString)
+    {
+        //decode another fields
+        uint32_t nbFields;
+        nbFields = 0;
+        while (nbFields < (LMODEM_METADATA_NB - 1))
+        {
+            char* pData;
+            pData = lymodem_get_next_meta_data_string(&pString, pEndString);
+            if (pData == NULL)
+            {
+                break;
+            }
+            else
+            {
+                switch (nbFields)
+                {
+                    case 0:
+                        //file size
+                        pThis->file_data.size = lymodem_getValue(&bResult, pData, 10);
+                        pThis->file_data.valid |= LMODEM_METADATA_FILESIZE_VALID;
+                        DBG("file size = '%d'\n", pThis->file_data.size );
+                        break;
+
+                    case 1:
+                        //modif date
+                        pThis->file_data.modif_date = lymodem_getValue(&bResult, pData, 8);
+                        pThis->file_data.valid |= LMODEM_METADATA_MODIFDATE_VALID;
+                        DBG("modif date = '%d'\n", pThis->file_data.modif_date );
+                        break;
+
+                    case 2:
+                        //file mode
+                        pThis->file_data.permission = lymodem_getValue(&bResult, pData, 8);
+                        //remove hiBit indication for unix permission type
+                        pThis->file_data.permission &= ~0x8000;
+                        pThis->file_data.valid |= LMODEM_METADATA_PERMISSION_VALID;
+                        DBG("filemode = 0'%o'\n", pThis->file_data.permission );
+                        break;
+
+                    case 3:
+                        //serial number
+                        pThis->file_data.serial_number = lymodem_getValue(&bResult, pData, 8);
+                        pThis->file_data.valid |= LMODEM_METADATA_SERIAL_VALID;
+                        DBG("serial = '%d'\n", pThis->file_data.serial_number );
+                        break;
+
+                    default://not possible
+                        break;
+
+                }
+            }
+            nbFields++;
+            if (bResult == false)
+            {
+                break;
+            }
+        }
+    }
+
+    return bResult;
+}
+
+uint32_t lymodem_getValue(bool* isValid, char* pString, int32_t mode)
+{
+    char* pEnd;
+    uint32_t r;
+
+    r = strtoul(pString, &pEnd, mode);
+    if (*pEnd != '\0')
+    {
+        *isValid = false;
+        DBG("fields '%s' invalid\n", pString);
+    }
+    else
+    {
+        *isValid = true;
+    }
+    return r;
+}
+
+char* lymodem_get_next_meta_data_string(char** pString, char* pEndString)
+{
+    char* pCursor;
+    char* pResult;
+    pCursor = *pString;
+    pResult = *pString;
+
+    if ((*pCursor == '\0') || (pCursor >= pEndString))
+    {
+        return NULL;
+    }
+
+    while ((*pCursor != ' ') && (*pCursor != '\0') && (pCursor < pEndString))
+    {
+        pCursor++;
+    }
+
+    *pCursor = '\0';
+    pCursor++;
+    *pString = pCursor;
+
+    return pResult;
 }

@@ -69,3 +69,9 @@ void lmodem_set_file_buffer(modem_context_t* pThis, uint8_t* buffer, uint32_t si
 {
     lmodem_buffer_init(&pThis->ramfile, buffer, size);
 }
+
+void lmodem_set_filename_buffer(modem_context_t* pThis, char* buffer, uint32_t size)
+{
+    pThis->file_data.filename = buffer;
+    pThis->file_data.filename_size = size;
+}
