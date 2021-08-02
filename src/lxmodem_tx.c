@@ -91,7 +91,7 @@ static bool lxmodem_decode_preambule(modem_context_t* pThis, uint8_t preambule)
             break;
 
         case 'C':
-            if ((pThis->opts == lxmodem_128_with_crc) || (pThis->opts == lxmodem_1k))
+            if ((pThis->protocol == YMODEM) || (pThis->opts == lxmodem_128_with_crc) || (pThis->opts == lxmodem_1k))
             {
                 bCanContinue = true;
             }
@@ -111,25 +111,34 @@ static int32_t lxmode_send_data_blocks(modem_context_t* pThis)
 
     emittedBytes = 0;
     withCrc = false;
-    switch (pThis->opts)
+
+    if (pThis->protocol == XMODEM)
     {
-        case lxmodem_128_with_chksum:
-            defaultBlksize = 128;
-            withCrc = false;
-            break;
+        switch (pThis->opts)
+        {
+            case lxmodem_128_with_chksum:
+                defaultBlksize = 128;
+                withCrc = false;
+                break;
 
-        case lxmodem_128_with_crc:
-            defaultBlksize = 128;
-            withCrc = true;
-            break;
+            case lxmodem_128_with_crc:
+                defaultBlksize = 128;
+                withCrc = true;
+                break;
 
-        case lxmodem_1k:
-            defaultBlksize = 1024;
-            withCrc = true;
-            break;
+            case lxmodem_1k:
+                defaultBlksize = 1024;
+                withCrc = true;
+                break;
 
-        default:
-            break;
+            default:
+                break;
+        }
+    }
+    else if (pThis->protocol == YMODEM)
+    {
+        defaultBlksize = 1024;
+        withCrc = true;
     }
 
     blkNo = 1;
@@ -280,25 +289,221 @@ void lxmode_reemit_previous_block(modem_context_t* pThis)
     lmodem_putchar(pThis,  pThis->blk_buffer.buffer, pThis->blk_buffer.current_size);
 }
 
+bool lymodem_build_and_send_block0(modem_context_t* pThis);
+void lymodem_send_end_of_bach(modem_context_t* pThis);
+
 static int32_t lymodem_emit(modem_context_t* pThis)
 {
     uint32_t timeout;
+    uint32_t nbEmitted;
     uint8_t block0;
     bool bReceived;
+    bool bOk;
 
+    nbEmitted = -1;
+    bOk = false;
     bReceived = false;
     timeout = 0;
     while ((bReceived == false) && (timeout < 10))
     {
         //wait preambule
         bReceived = lmodem_getchar(pThis, &block0, 1);
-        if (bReceived)
+        if ((bReceived) && (block0 == 'C'))
         {
+            bOk = true;
             break;
         }
         timeout++;
     }
 
+    if (bOk)
+    {
+        lymodem_build_and_send_block0(pThis);
+        bReceived = false;
+        timeout = 0;
+        while ((bReceived == false) && (timeout < 10))
+        {
+            bReceived = lmodem_getchar(pThis, &block0, 1);
+            if ((bReceived == true) && (block0 == ACK))
+            {
+                bOk = true;
+            }
+            else
+            {
+                lymodem_build_and_send_block0(pThis);
+            }
 
-    return -1;
+            timeout++;
+        }
+    }
+
+    if (bOk)
+    {
+        nbEmitted = lxmodem_emit(pThis);
+    }
+
+    if (bOk && (nbEmitted > 0))
+    {
+        bReceived = false;
+        timeout = 0;
+
+        while ((bReceived == false) && (timeout < 10))
+        {
+            //wait preambule
+            bReceived = lmodem_getchar(pThis, &block0, 1);
+            if ((bReceived) && (block0 == 'C'))
+            {
+                bOk = true;
+                break;
+            }
+            timeout++;
+        }
+
+
+        lymodem_send_end_of_bach(pThis);
+
+        bReceived = false;
+        timeout = 0;
+        while ((bReceived == false) && (timeout < 10))
+        {
+            bReceived = lmodem_getchar(pThis, &block0, 1);
+            if ((bReceived == true) && (block0 == ACK))
+            {
+                bOk = true;
+            }
+        }
+
+        if (timeout == 10)
+        {
+            nbEmitted = -1;
+        }
+    }
+
+    return nbEmitted;
+}
+
+
+static const char* lymodem_format[] =
+{
+    "%d",
+    "%d %o",
+    "%d %o %o",
+    "%d %o %o %o"
+};
+
+
+bool lymodem_build_and_send_block0(modem_context_t* pThis)
+{
+    bool bOk;
+
+    bOk = false;
+
+    memset(pThis->blk_buffer.buffer, 0, pThis->blk_buffer.max_size);
+    //block 0
+    pThis->blk_buffer.buffer[1] = 0;
+    pThis->blk_buffer.buffer[2] = ~0;
+
+    if ((pThis->file_data.valid & LMODEM_METADATA_FILENAME_VALID) == LMODEM_METADATA_FILENAME_VALID)
+    {
+        uint32_t maxTocopy;
+        uint32_t sizeFilename;
+
+        sizeFilename = strlen(pThis->file_data.filename);
+        maxTocopy = min(pThis->blk_buffer.max_size - 3, sizeFilename);
+
+        strncpy((char*) &pThis->blk_buffer.buffer[3], pThis->file_data.filename, maxTocopy);
+        pThis->blk_buffer.buffer[3 + maxTocopy] = '\0';
+
+        sizeFilename = strlen((char*) &pThis->blk_buffer.buffer[3]);
+
+        char* pStartMetaData;
+        pStartMetaData = (char*) &pThis->blk_buffer.buffer[3 + sizeFilename + 1];
+
+        char* pEndBuffer = (char*) pThis->blk_buffer.buffer + pThis->blk_buffer.max_size;
+        pEndBuffer -= 3; // remove crc and final \0
+
+        uint32_t nbMetaDataTocpy;
+        int32_t nbWritten;
+        nbWritten = 0;
+        nbMetaDataTocpy = 0;
+        //copy the metadata
+        if ((pThis->file_data.valid & LMODEM_METADATA_FILESIZE_VALID) == LMODEM_METADATA_FILESIZE_VALID)
+        {
+            nbMetaDataTocpy++;
+        }
+        if ((pThis->file_data.valid & LMODEM_METADATA_MODIFDATE_VALID) == LMODEM_METADATA_MODIFDATE_VALID)
+        {
+            nbMetaDataTocpy++;
+        }
+        if ((pThis->file_data.valid & LMODEM_METADATA_PERMISSION_VALID) == LMODEM_METADATA_PERMISSION_VALID)
+        {
+            nbMetaDataTocpy++;
+        }
+
+        if ((pThis->file_data.valid & LMODEM_METADATA_SERIAL_VALID) == LMODEM_METADATA_SERIAL_VALID)
+        {
+            nbMetaDataTocpy++;
+        }
+
+        switch (nbMetaDataTocpy)
+        {
+            case 0:
+            default:
+                break;
+            case 1:
+                nbWritten = snprintf(pStartMetaData, pEndBuffer - pStartMetaData, lymodem_format[nbMetaDataTocpy - 1], pThis->file_data.size);
+                break;
+            case 2:
+                nbWritten = snprintf(pStartMetaData, pEndBuffer - pStartMetaData, lymodem_format[nbMetaDataTocpy - 1], pThis->file_data.size,
+                                     pThis->file_data.modif_date);
+                break;
+            case 3:
+                nbWritten = snprintf(pStartMetaData, pEndBuffer - pStartMetaData, lymodem_format[nbMetaDataTocpy - 1], pThis->file_data.size,
+                                     pThis->file_data.modif_date, pThis->file_data.permission | 0x8000);
+                break;
+            case 4:
+                nbWritten = snprintf(pStartMetaData, pEndBuffer - pStartMetaData, lymodem_format[nbMetaDataTocpy - 1], pThis->file_data.size,
+                                     pThis->file_data.modif_date, pThis->file_data.permission | 0x8000, pThis->file_data.serial_number);
+                break;
+        }
+
+        bOk = true;
+        uint32_t max_size = 3 + sizeFilename + 1 + nbWritten + 1;
+        uint32_t nbDataToSend;
+        uint32_t effectiveBlksize;
+        uint16_t crc;
+        if (max_size < 128)
+        {
+            pThis->blk_buffer.buffer[0] = SOH;
+            effectiveBlksize = 128;
+            nbDataToSend = 1 + 2 + 128 + 2;
+        }
+        else
+        {
+            pThis->blk_buffer.buffer[0] = STX;
+            effectiveBlksize = 1024;
+            nbDataToSend = 1 + 2 + 1024 + 2;
+        }
+
+        crc = crc16_doCalcul(&pThis->crc16, pThis->blk_buffer.buffer + 3, effectiveBlksize, LXMODEM_CRC16_INIT_VALUE, LXMODEM_CRC16_XOR_FINAL);
+        pThis->blk_buffer.buffer[3 + effectiveBlksize] = (crc & 0xFF00) >> 8;
+        pThis->blk_buffer.buffer[3 + effectiveBlksize + 1] = (crc & 0xFF);
+        lmodem_putchar(pThis, pThis->blk_buffer.buffer, nbDataToSend);
+    }
+
+    return bOk;
+}
+
+
+void lymodem_send_end_of_bach(modem_context_t* pThis)
+{
+    uint16_t crc;
+    memset(pThis->blk_buffer.buffer, 0, pThis->blk_buffer.max_size);
+    pThis->blk_buffer.buffer[0] = SOH;
+    pThis->blk_buffer.buffer[1] = 0;
+    pThis->blk_buffer.buffer[2] = ~0;
+    crc = crc16_doCalcul(&pThis->crc16, pThis->blk_buffer.buffer + 3, 128, LXMODEM_CRC16_INIT_VALUE, LXMODEM_CRC16_XOR_FINAL);
+    pThis->blk_buffer.buffer[3 + 128] = (crc & 0xFF00) >> 8;
+    pThis->blk_buffer.buffer[3 + 128 + 1] = (crc & 0xFF);
+    lmodem_putchar(pThis, pThis->blk_buffer.buffer, 3 + 128 + 2);
 }

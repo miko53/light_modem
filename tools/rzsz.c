@@ -338,6 +338,15 @@ int do_file_transmission(void)
             b = lmodem_buffer_set_write_offset(&xmodem_ctx.ramfile, fileStat.st_size);
             assert(b == true);
 
+            if (options.protocol == YMODEM)
+            {
+                lmodem_metadata_set_filename(&xmodem_ctx, strrchr(options.filename, '/') + 1);
+                lmodem_metadata_set_filesize(&xmodem_ctx, fileStat.st_size);
+                lmodem_metadata_set_modif_time(&xmodem_ctx, fileStat.st_mtime);
+                lmodem_metadata_set_permission(&xmodem_ctx, fileStat.st_mode);
+                lmodem_metadata_set_serial(&xmodem_ctx, 0);
+            }
+
             nbBytesEmitted = lmodem_emit(&xmodem_ctx, options.protocol);
             fprintf(stdout, "nbBytesEmitted = %d\n", nbBytesEmitted);
             free(datafile);

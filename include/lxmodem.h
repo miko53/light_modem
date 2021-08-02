@@ -93,6 +93,12 @@ extern bool lmodem_buffer_set_write_offset(lmodem_buffer* pThis, uint32_t newWri
 extern int32_t lmodem_buffer_read(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);
 extern int32_t lmodem_buffer_write(lmodem_buffer* pThis, uint8_t* buffer, uint32_t size);
 
+extern void lmodem_metadata_set_filename(modem_context_t* pThis, char* filename);
+extern void lmodem_metadata_set_filesize(modem_context_t* pThis, uint32_t size);
+extern void lmodem_metadata_set_modif_time(modem_context_t* pThis, uint32_t modif_date);
+extern void lmodem_metadata_set_permission(modem_context_t* pThis, uint32_t perm);
+extern void lmodem_metadata_set_serial(modem_context_t* pThis, uint32_t serial);
+
 #ifdef	__cplusplus
 }
 #endif

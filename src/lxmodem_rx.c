@@ -20,11 +20,11 @@ static lxmodem_reception_status lxmodem_check_block_no_and_crc(modem_context_t* 
         uint32_t requestedBlksize);
 static lxmodem_reception_status lxmodem_check_crc(modem_context_t* pThis, uint32_t requestedBlksize);
 static void lxmodem_build_and_send_reply(modem_context_t* pThis, lxmodem_reception_status rcvStatus);
-bool lymodem_get_meta_data(modem_context_t* pThis);
-uint32_t lymodem_getValue(bool* isValid, char* pString, int32_t mode);
+static bool lymodem_get_meta_data(modem_context_t* pThis);
+static uint32_t lymodem_getValue(bool* isValid, char* pString, int32_t mode);
 static lxmodem_reception_status lymodem_receive_block0(modem_context_t* pThis, uint32_t blksize);
 static void lymodem_block_next_file(modem_context_t* pThis);
-bool lymodem_decode_block0(modem_context_t* pThis);
+static bool lymodem_decode_block0(modem_context_t* pThis);
 char* lymodem_get_next_meta_data_string(char** pString, char* pEndString);
 
 int32_t lmodem_receive(modem_context_t* pThis, lmodem_protocol protocol)

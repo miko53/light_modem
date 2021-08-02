@@ -75,3 +75,38 @@ void lmodem_set_filename_buffer(modem_context_t* pThis, char* buffer, uint32_t s
     pThis->file_data.filename = buffer;
     pThis->file_data.filename_size = size;
 }
+
+
+void lmodem_metadata_set_filename(modem_context_t* pThis, char* filename)
+{
+    if (pThis->file_data.filename != NULL)
+    {
+        strncpy(pThis->file_data.filename, filename, pThis->file_data.filename_size);
+        pThis->file_data.filename[pThis->file_data.filename_size - 1] = '\0';
+        pThis->file_data.valid |= LMODEM_METADATA_FILENAME_VALID;
+    }
+}
+
+void lmodem_metadata_set_filesize(modem_context_t* pThis, uint32_t size)
+{
+    pThis->file_data.size = size;
+    pThis->file_data.valid |= LMODEM_METADATA_FILESIZE_VALID;
+}
+
+void lmodem_metadata_set_modif_time(modem_context_t* pThis, uint32_t modif_date)
+{
+    pThis->file_data.modif_date = modif_date;
+    pThis->file_data.valid |= LMODEM_METADATA_MODIFDATE_VALID;
+}
+
+void lmodem_metadata_set_permission(modem_context_t* pThis, uint32_t perm)
+{
+    pThis->file_data.permission = perm;
+    pThis->file_data.valid |= LMODEM_METADATA_PERMISSION_VALID;
+}
+
+void lmodem_metadata_set_serial(modem_context_t* pThis, uint32_t serial)
+{
+    pThis->file_data.serial_number = serial;
+    pThis->file_data.valid |= LMODEM_METADATA_SERIAL_VALID;
+}
