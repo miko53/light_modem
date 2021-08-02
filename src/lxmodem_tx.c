@@ -12,7 +12,8 @@ static bool lxmode_build_and_send_one_data_block(modem_context_t* pThis, uint8_t
 static void lxmode_reemit_previous_block(modem_context_t* pThis);
 static bool lymodem_build_and_send_block0(modem_context_t* pThis);
 static void lymodem_send_end_of_bach(modem_context_t* pThis);
-
+static bool lmodem_wait_reception_of(modem_context_t* pThis, uint8_t cntrlChar);
+static bool lmodem_wait_reception(modem_context_t* pThis, uint8_t* pReceived);
 
 int32_t lmodem_emit(modem_context_t* pThis, lmodem_protocol protocol)
 {
@@ -294,46 +295,43 @@ void lxmode_reemit_previous_block(modem_context_t* pThis)
 
 static int32_t lymodem_emit(modem_context_t* pThis)
 {
-    uint32_t timeout;
     uint32_t nbEmitted;
-    uint8_t block0;
-    bool bReceived;
+    uint8_t receivedChar;
+    uint32_t retry;
     bool bOk;
+    bool bDone;
 
     nbEmitted = -1;
-    bOk = false;
-    bReceived = false;
-    timeout = 0;
-    while ((bReceived == false) && (timeout < 10))
-    {
-        //wait preambule
-        bReceived = lmodem_getchar(pThis, &block0, 1);
-        if ((bReceived) && (block0 == 'C'))
-        {
-            bOk = true;
-            break;
-        }
-        timeout++;
-    }
 
+    bOk = false;
+
+    bOk = lmodem_wait_reception_of(pThis, 'C');
     if (bOk)
     {
         lymodem_build_and_send_block0(pThis);
-        bReceived = false;
-        timeout = 0;
-        while ((bReceived == false) && (timeout < 10))
-        {
-            bReceived = lmodem_getchar(pThis, &block0, 1);
-            if ((bReceived == true) && (block0 == ACK))
-            {
-                bOk = true;
-            }
-            else
-            {
-                lymodem_build_and_send_block0(pThis);
-            }
 
-            timeout++;
+        bDone = false;
+        retry = 0;
+        while ((!bDone) && (retry < 10))
+        {
+            lmodem_wait_reception(pThis, &receivedChar);
+            switch (receivedChar)
+            {
+                case ACK:
+                    bOk = true;
+                    bDone = true;
+                    break;
+
+                case CAN:
+                    bDone = true;
+                    bOk = false;
+                    break;
+
+                case NAK:
+                    lxmode_reemit_previous_block(pThis);
+                    retry++;
+                    break;
+            }
         }
     }
 
@@ -344,44 +342,98 @@ static int32_t lymodem_emit(modem_context_t* pThis)
 
     if (bOk && (nbEmitted > 0))
     {
-        bReceived = false;
-        timeout = 0;
+        bOk = lmodem_wait_reception_of(pThis, 'C');
+    }
 
-        while ((bReceived == false) && (timeout < 10))
-        {
-            //wait preambule
-            bReceived = lmodem_getchar(pThis, &block0, 1);
-            if ((bReceived) && (block0 == 'C'))
-            {
-                bOk = true;
-                break;
-            }
-            timeout++;
-        }
-
-
+    if (bOk)
+    {
         lymodem_send_end_of_bach(pThis);
-
-        bReceived = false;
-        timeout = 0;
-        while ((bReceived == false) && (timeout < 10))
+        bDone = false;
+        retry = 0;
+        while ((!bDone) && (retry < 10))
         {
-            bReceived = lmodem_getchar(pThis, &block0, 1);
-            if ((bReceived == true) && (block0 == ACK))
+            lmodem_wait_reception(pThis, &receivedChar);
+            switch (receivedChar)
             {
-                bOk = true;
+                case ACK:
+                    bOk = true;
+                    bDone = true;
+                    break;
+
+                case CAN:
+                    bDone = true;
+                    bOk = false;
+                    break;
+
+                case NAK:
+                    lxmode_reemit_previous_block(pThis);
+                    retry++;
+                    break;
             }
         }
-
-        if (timeout == 10)
+        if (!bOk)
         {
             nbEmitted = -1;
         }
+
     }
 
     return nbEmitted;
 }
 
+static bool lmodem_wait_reception_of(modem_context_t* pThis, uint8_t cntrlChar)
+{
+    uint32_t timeout;
+    bool bReceived;
+    bool isReceivedOk;
+    uint8_t receivedChar;
+    isReceivedOk = false;
+
+    bReceived = false;
+    timeout = 0;
+    while ((isReceivedOk == false) && (timeout < 10))
+    {
+        //wait preambule
+        bReceived = lmodem_getchar(pThis, &receivedChar, 1);
+        if ((bReceived) && (receivedChar == cntrlChar))
+        {
+            isReceivedOk = true;
+            break;
+        }
+        timeout++;
+    }
+
+    return isReceivedOk;
+}
+
+static bool lmodem_wait_reception(modem_context_t* pThis, uint8_t* pReceived)
+{
+    uint32_t timeout;
+    bool bReceived;
+    bool isReceivedOk;
+    char receivedChar;
+    isReceivedOk = false;
+
+    bReceived = false;
+    timeout = 0;
+    while ((isReceivedOk == false) && (timeout < 10))
+    {
+        //wait preambule
+        bReceived = lmodem_getchar(pThis, (uint8_t*) &receivedChar, 1);
+        if (bReceived)
+        {
+            if (pReceived != NULL)
+            {
+                *pReceived = receivedChar;
+            }
+            isReceivedOk = true;
+            break;
+        }
+        timeout++;
+    }
+
+    return isReceivedOk;
+}
 
 static const char* lymodem_format[] =
 {
@@ -489,6 +541,7 @@ bool lymodem_build_and_send_block0(modem_context_t* pThis)
         pThis->blk_buffer.buffer[3 + effectiveBlksize] = (crc & 0xFF00) >> 8;
         pThis->blk_buffer.buffer[3 + effectiveBlksize + 1] = (crc & 0xFF);
         lmodem_putchar(pThis, pThis->blk_buffer.buffer, nbDataToSend);
+        pThis->blk_buffer.current_size = nbDataToSend;
     }
 
     return bOk;
@@ -505,4 +558,5 @@ void lymodem_send_end_of_bach(modem_context_t* pThis)
     pThis->blk_buffer.buffer[3 + 128] = (crc & 0xFF00) >> 8;
     pThis->blk_buffer.buffer[3 + 128 + 1] = (crc & 0xFF);
     lmodem_putchar(pThis, pThis->blk_buffer.buffer, 3 + 128 + 2);
+    pThis->blk_buffer.current_size = 3 + 128 + 2;
 }
