@@ -381,6 +381,40 @@ int do_file_reception()
             fwrite(xmodem_ctx.ramfile.buffer, 1, xmodem_ctx.ramfile.write_offset, f);
             exit_code = EXIT_SUCCESS;
         }
+
+        if (options.protocol == YMODEM)
+        {
+            char filename[256];
+            uint32_t size;
+            uint32_t modif_time;
+            uint32_t mode;
+            uint32_t serial;
+
+            if (lmodem_metadata_get_filename(&xmodem_ctx, filename, 256) == true)
+            {
+                fprintf(stdout, "reception of file: '%s'\n", filename);
+            }
+
+            if (lmodem_metadata_get_filesize(&xmodem_ctx, &size) == true)
+            {
+                fprintf(stdout, "  size: '%d'\n", size);
+            }
+            if (lmodem_metadata_get_modif_time(&xmodem_ctx, &modif_time) == true)
+            {
+                fprintf(stdout, "  modification time: '%d'\n", modif_time);
+            }
+
+            if (lmodem_metadata_get_permission(&xmodem_ctx, &mode) == true)
+            {
+                fprintf(stdout, "  mode: 0'%o'\n", mode);
+            }
+
+            if (lmodem_metadata_get_serial(&xmodem_ctx, &serial) == true)
+            {
+                fprintf(stdout, "  serial: %d\n", serial);
+            }
+        }
+
         fclose(f);
     }
     else

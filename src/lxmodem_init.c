@@ -110,3 +110,86 @@ void lmodem_metadata_set_serial(modem_context_t* pThis, uint32_t serial)
     pThis->file_data.serial_number = serial;
     pThis->file_data.valid |= LMODEM_METADATA_SERIAL_VALID;
 }
+
+
+bool lmodem_metadata_get_filename(modem_context_t* pThis, char* filename, uint32_t size)
+{
+    bool bOk;
+    bOk = false;
+    if ((pThis->file_data.valid & LMODEM_METADATA_FILENAME_VALID) == LMODEM_METADATA_FILENAME_VALID)
+    {
+        if (filename != NULL)
+        {
+            memcpy(filename, pThis->file_data.filename, size);
+            filename[size - 1] = '\0';
+            bOk = true;
+        }
+    }
+
+    return bOk;
+}
+
+
+bool lmodem_metadata_get_filesize(modem_context_t* pThis, uint32_t* filesize)
+{
+    bool bOk;
+    bOk = false;
+    if ((pThis->file_data.valid & LMODEM_METADATA_FILENAME_VALID) == LMODEM_METADATA_FILENAME_VALID)
+    {
+        if (filesize != NULL)
+        {
+            *filesize =  pThis->file_data.size;
+            bOk = true;
+        }
+    }
+
+    return bOk;
+}
+
+bool lmodem_metadata_get_modif_time(modem_context_t* pThis, uint32_t* modiftime)
+{
+    bool bOk;
+    bOk = false;
+    if ((pThis->file_data.valid & LMODEM_METADATA_FILENAME_VALID) == LMODEM_METADATA_FILENAME_VALID)
+    {
+        if (modiftime != NULL)
+        {
+            *modiftime =  pThis->file_data.modif_date;
+            bOk = true;
+        }
+    }
+
+    return bOk;
+}
+
+bool lmodem_metadata_get_permission(modem_context_t* pThis, uint32_t* mode)
+{
+    bool bOk;
+    bOk = false;
+    if ((pThis->file_data.valid & LMODEM_METADATA_FILENAME_VALID) == LMODEM_METADATA_FILENAME_VALID)
+    {
+        if (mode != NULL)
+        {
+            *mode =  pThis->file_data.permission;
+            bOk = true;
+        }
+    }
+
+    return bOk;
+}
+
+bool lmodem_metadata_get_serial(modem_context_t* pThis, uint32_t* serial)
+{
+    bool bOk;
+    bOk = false;
+    if ((pThis->file_data.valid & LMODEM_METADATA_FILENAME_VALID) == LMODEM_METADATA_FILENAME_VALID)
+    {
+        if (serial != NULL)
+        {
+            *serial =  pThis->file_data.serial_number;
+            bOk = true;
+        }
+    }
+
+    return bOk;
+}

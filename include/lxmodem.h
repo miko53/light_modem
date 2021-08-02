@@ -99,6 +99,13 @@ extern void lmodem_metadata_set_modif_time(modem_context_t* pThis, uint32_t modi
 extern void lmodem_metadata_set_permission(modem_context_t* pThis, uint32_t perm);
 extern void lmodem_metadata_set_serial(modem_context_t* pThis, uint32_t serial);
 
+extern bool lmodem_metadata_get_filename(modem_context_t* pThis, char* filename, uint32_t size);
+extern bool lmodem_metadata_get_filesize(modem_context_t* pThis, uint32_t* filesize);
+extern bool lmodem_metadata_get_modif_time(modem_context_t* pThis, uint32_t* modiftime);
+extern bool lmodem_metadata_get_permission(modem_context_t* pThis, uint32_t* mode);
+extern bool lmodem_metadata_get_serial(modem_context_t* pThis, uint32_t* serial);
+
+
 #ifdef	__cplusplus
 }
 #endif
