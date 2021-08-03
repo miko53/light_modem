@@ -26,3 +26,9 @@ a test serie is available in `tests` folder, it is based on linux version by sim
 a tool `rzsz` is used to perform tests.
 see script in `tests/launch_tests.rb`
 
+## 5. TODO
+
+- add tests for retry and NAK reception
+- add callback to read/write data on-the-fly and not in ram if necessary
+- add arguments for tests for release/debug version
+- add cmake package
