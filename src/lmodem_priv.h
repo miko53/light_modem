@@ -28,7 +28,6 @@
 #define LMODEM_METADATA_PERMISSION_VALID  (0x08)
 #define LMODEM_METADATA_SERIAL_VALID      (0x10)
 
-#define LMODEM_TRACE
 #ifdef LMODEM_TRACE
 #include <stdio.h>
 #include <time.h>

@@ -2,6 +2,7 @@
 #include "lmodem_priv.h"
 #include "lmodem_buffer.h"
 #include <string.h>
+#include <stdio.h>
 
 static  int32_t lxmodem_emit(modem_context_t* pThis);
 static int32_t lymodem_emit(modem_context_t* pThis);
