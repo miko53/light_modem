@@ -112,6 +112,7 @@ static int32_t lxmode_send_data_blocks(modem_context_t* pThis)
     uint32_t emittedBytes;
     int32_t nbEmitted;
 
+    defaultBlksize = 128;
     emittedBytes = 0;
     withCrc = false;
 
@@ -292,7 +293,6 @@ void lxmode_reemit_previous_block(modem_context_t* pThis)
     lmodem_putchar(pThis,  pThis->blk_buffer.buffer, pThis->blk_buffer.current_size);
 }
 
-
 static int32_t lymodem_emit(modem_context_t* pThis)
 {
     uint32_t nbEmitted;
@@ -301,8 +301,8 @@ static int32_t lymodem_emit(modem_context_t* pThis)
     bool bOk;
     bool bDone;
 
+    receivedChar = 0;
     nbEmitted = -1;
-
     bOk = false;
 
     bOk = lmodem_wait_reception_of(pThis, 'C');
@@ -460,8 +460,7 @@ bool lymodem_build_and_send_block0(modem_context_t* pThis)
         uint32_t maxTocopy;
         uint32_t sizeFilename;
 
-        sizeFilename = strlen(pThis->file_data.filename);
-        maxTocopy = min(pThis->blk_buffer.max_size - 3, sizeFilename);
+        maxTocopy = pThis->blk_buffer.max_size - 3;
 
         strncpy((char*) &pThis->blk_buffer.buffer[3], pThis->file_data.filename, maxTocopy);
         pThis->blk_buffer.buffer[3 + maxTocopy] = '\0';

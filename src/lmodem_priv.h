@@ -28,8 +28,8 @@
 #define LMODEM_METADATA_PERMISSION_VALID  (0x08)
 #define LMODEM_METADATA_SERIAL_VALID      (0x10)
 
-#define MODEM_TRACE
-#ifdef MODEM_TRACE
+#define LMODEM_TRACE
+#ifdef LMODEM_TRACE
 #include <stdio.h>
 #include <time.h>
 #define DBG(...) fprintf(stderr, __VA_ARGS__)
@@ -41,7 +41,7 @@
 
 static inline void lmodem_putchar(modem_context_t* pThis, uint8_t* data, uint32_t size)
 {
-#ifdef MODEM_TRACE
+#ifdef LMODEM_TRACE
     int32_t i;
     time_t t = time(NULL);
     DBG("(%ld) send %d byte(s): ", t, size);
@@ -58,7 +58,7 @@ static inline bool lmodem_getchar(modem_context_t* pThis, uint8_t* data, uint32_
 {
     bool b;
     b = pThis->getchar(pThis, data, size);
-#ifdef MODEM_TRACE
+#ifdef LMODEM_TRACE
     if (b)
     {
         int32_t i;

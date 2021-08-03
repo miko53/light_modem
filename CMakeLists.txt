@@ -2,6 +2,10 @@
 
 cmake_minimum_required(VERSION 3.13)
 
+if (MODEM_DEBUG)
+add_definitions(-DLMODEM_TRACE)
+endif()
+
 ### Std compiler options
 if(UNIX)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=gnu99 -W -Wall -Wshadow -Wno-aggregate-return -Wno-suggest-attribute=format -Wno-undef -fms-extensions")  #-Wno-discarded-qualifiers
