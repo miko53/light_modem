@@ -1,4 +1,4 @@
-light_modem - a minimal version of xmodem and ymodem.
+# light_modem - a minimal version of xmodem and ymodem.
 
 # 1. DESCRIPTION
 
@@ -17,7 +17,7 @@ ymodem (with adaptation of file size and api to retrieve file characteristics)
 # 3. COMPILATION
 
 use cmake
-see bach script at the root, for example `prepare-linux-debug.sh` and `prepare-linux-release.sh` 
+see bach script at the root, for example `prepare-linux-debug.sh` and `prepare-linux-release.sh`
 
 # 4. TESTS
 
