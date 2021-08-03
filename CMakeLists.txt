@@ -7,6 +7,8 @@ include(GNUInstallDirs)
 #for package
 include(CMakePackageConfigHelpers)
 
+set(CMAKE_DEBUG_POSTFIX d)
+
 if (MODEM_DEBUG)
 add_definitions(-DLMODEM_TRACE)
 endif()
