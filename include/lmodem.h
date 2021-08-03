@@ -15,6 +15,7 @@ extern "C" {
 #define LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE    (1 + 2 + 128 + 1)
 #define LXMODEM_128_CRC_BUFFER_MIN_SIZE       (1 + 2 + 128 + 2)
 #define LXMODEM_1K_BUFFER_MIN_SIZE            (1 + 2 + 1024 + 2)
+#define LYMODEM_BUFFER_MIN_SIZE               LXMODEM_1K_BUFFER_MIN_SIZE
 
 typedef enum
 {
@@ -28,7 +29,6 @@ typedef enum
     lxmodem_128_with_crc,
     lxmodem_1k,
 } lxmodem_opts;
-
 
 typedef struct
 {
@@ -44,14 +44,6 @@ typedef struct
     uint32_t current_size;
     uint32_t max_size;
 } lmodem_linebuffer;
-
-
-#define LMODEM_METADATA_NB                   (5)
-#define LMODEM_METADATA_FILENAME_VALID    (0x01)
-#define LMODEM_METADATA_FILESIZE_VALID    (0x02)
-#define LMODEM_METADATA_MODIFDATE_VALID   (0x04)
-#define LMODEM_METADATA_PERMISSION_VALID  (0x08)
-#define LMODEM_METADATA_SERIAL_VALID      (0x10)
 
 typedef struct
 {
@@ -104,7 +96,6 @@ extern bool lmodem_metadata_get_filesize(modem_context_t* pThis, uint32_t* files
 extern bool lmodem_metadata_get_modif_time(modem_context_t* pThis, uint32_t* modiftime);
 extern bool lmodem_metadata_get_permission(modem_context_t* pThis, uint32_t* mode);
 extern bool lmodem_metadata_get_serial(modem_context_t* pThis, uint32_t* serial);
-
 
 #ifdef	__cplusplus
 }

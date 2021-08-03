@@ -2,7 +2,7 @@
 #ifndef LMODEM_BUFFER_H
 #define LMODEM_BUFFER_H
 
-#include "lxmodem.h"
+#include "lmodem.h"
 
 #ifdef __cplusplus
 extern "C" {

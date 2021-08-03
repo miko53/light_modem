@@ -2,7 +2,7 @@
 #ifndef LXMODEM_PRIV_H
 #define LXMODEM_PRIV_H
 
-#include "lxmodem.h"
+#include "lmodem.h"
 
 #define LXMODEM_CRC16_INIT_VALUE       (0)
 #define LXMODEM_CRC16_XOR_FINAL        (0)

@@ -1,6 +1,6 @@
 
-#include "lxmodem.h"
-#include "lxmodem_priv.h"
+#include "lmodem.h"
+#include "lmodem_priv.h"
 #include "lmodem_buffer.h"
 #include <string.h>
 
@@ -15,7 +15,6 @@ void lmodem_init(modem_context_t* pThis, lxmodem_opts opts)
     crc16_init(&pThis->crc16, LXMODEM_CRC16_CCITT_POLYNOME);
     //}
 }
-
 
 void lmodem_set_putchar_cb(modem_context_t* pThis, void (*putchar)(modem_context_t* pThis, uint8_t* data, uint32_t size))
 {

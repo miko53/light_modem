@@ -1,5 +1,5 @@
-#include "lxmodem.h"
-#include "lxmodem_priv.h"
+#include "lmodem.h"
+#include "lmodem_priv.h"
 #include "lmodem_buffer.h"
 #include <string.h>
 

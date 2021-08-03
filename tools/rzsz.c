@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <getopt.h>
 #include <string.h>
-#include "lxmodem.h"
+#include "lmodem.h"
 #include "serial.h"
 #include <sys/stat.h>
 
@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
     }
     else if (options.protocol == YMODEM)
     {
-        xmodem_buffer_size = LXMODEM_1K_BUFFER_MIN_SIZE;
+        xmodem_buffer_size = LYMODEM_BUFFER_MIN_SIZE;
     }
 
     lmodem_init(&xmodem_ctx, xmodem_opts);
