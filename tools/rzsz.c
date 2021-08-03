@@ -9,9 +9,7 @@
 #include <sys/stat.h>
 
 
-#define XMODEM_BUFFER_BLK_SIZE (133)
 #define BUFFER_FILE_SIZE       (1024*1024)
-
 #define BUFFER_FILENAME_SIZE    (256)
 
 typedef enum

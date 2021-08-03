@@ -4,6 +4,14 @@
 
 #include "lmodem.h"
 
+#define SOH       (001)
+#define STX       (002)
+#define EOT       (004)
+#define ACK       (006)
+#define NAK       (025)
+#define CAN       (030)
+#define SUB       (032)
+
 #define LXMODEM_CRC16_INIT_VALUE       (0)
 #define LXMODEM_CRC16_XOR_FINAL        (0)
 

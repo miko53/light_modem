@@ -10,8 +10,6 @@
 extern "C" {
 #endif
 
-#include "asciitable.h"
-
 #define LXMODEM_128_CHKSUM_BUFFER_MIN_SIZE    (1 + 2 + 128 + 1)
 #define LXMODEM_128_CRC_BUFFER_MIN_SIZE       (1 + 2 + 128 + 2)
 #define LXMODEM_1K_BUFFER_MIN_SIZE            (1 + 2 + 1024 + 2)
