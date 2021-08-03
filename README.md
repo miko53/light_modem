@@ -19,6 +19,17 @@ ymodem (with adaptation of file size and api to retrieve file characteristics)
 use cmake
 see bach script at the root, for example `prepare-linux-debug.sh` and `prepare-linux-release.sh`
 
+```
+$ ./prepare-linux-debug.sh
+$ cd build
+$ make all
+$ cd ../tests
+$ ./launch_tests.rb
+```
+
+for installation `./prepare-linux-debug.sh -DCMAKE_INSTALL_PREFIX=<install_path>` and finally
+`make all install`
+
 ## 4. TESTS
 
 library has been tests with minicom.
@@ -31,4 +42,3 @@ see script in `tests/launch_tests.rb`
 - add tests for retry and NAK reception
 - add callback to read/write data on-the-fly and not in ram if necessary
 - add arguments for tests for release/debug version
-- add cmake package
