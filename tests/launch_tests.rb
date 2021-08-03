@@ -72,8 +72,9 @@ $nominal_tests_xmodem = [
   send_file: "files/test_00128bytes.txt", expected_file: "files/test_00128bytes.txt", result_file: "tests_results/1-test_00128bytes.txt" },
 { options_tx: "--protocol 0", options_rx: "--protocol 0", 
   send_file: "files/test_01254bytes.txt", expected_file: "expected_results/test_blksize_128_01280bytes.txt", result_file: "tests_results/2-test_01254bytes.txt" },
-{ options_tx: "", options_rx: "", send_file: "files/test_32800bytes.txt", expected_file: "expected_results/test_blksize_128_32800bytes.txt", result_file: "tests_results/3-test_32800bytes.txt" },
-{ options_tx: "", options_rx: "", 
+{ options_tx: "--protocol 0 ", options_rx: "--protocol 0 ", 
+  send_file: "files/test_32800bytes.txt", expected_file: "expected_results/test_blksize_128_32800bytes.txt", result_file: "tests_results/3-test_32800bytes.txt" },
+{ options_tx: "--protocol 0 ", options_rx: "--protocol 0 ", 
   send_file: "files/test_263000bytes.bin", expected_file: "expected_results/test_blksize_128_263000bytes.bin", result_file: "tests_results/4-test_263000bytes.bin" },
  
 { options_tx: "--protocol 0 --crc", options_rx: "--protocol 0 --crc", 
