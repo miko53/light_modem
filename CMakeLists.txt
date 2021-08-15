@@ -19,6 +19,10 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --std=gnu99 -W -Wall -Wshadow -Wno-aggregate
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0 -fstack-protector-all -Wstack-protector -fno-omit-frame-pointer")
 endif()
 
+if (COVERAGE)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
+endif()
+
 #include_directories(include)
 add_subdirectory(src)
 
