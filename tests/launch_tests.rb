@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
-RZSZ_EXEC="../build/tools/rzsz"
-#RZSZ_EXEC="../build-linux-release/tools/rzsz"
+RZSZ_EXEC_DEBUG="../build-linux-debug/tools/rzsz"
+RZSZ_EXEC_RELEASE="../build-linux-release/tools/rzsz"
 LOG_FILE = "tests.log"
 
 $pts = Array.new
@@ -33,15 +33,15 @@ def process_test(options_tx, options_rx, send_file, expected_file, result_file)
   bResult = false
   puts 'launch emission process'
   $emission_process = fork do
-    puts "#{RZSZ_EXEC} --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
-    exec "#{RZSZ_EXEC} --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
+    puts "#{$rzsz_exec} --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
+    exec "#{$rzsz_exec} --device #{$pts[0]} --speed 115200 --nb-stop 1 #{options_tx} --tx --file #{send_file}  >> emission.log 2>&1"
   end
   Process.detach $emission_process
 
   sleep(1)
   puts 'launch reception'
-  puts "#{RZSZ_EXEC} --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1"
-  reception = `#{RZSZ_EXEC} --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1`
+  puts "#{$rzsz_exec} --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1"
+  reception = `#{$rzsz_exec} --device #{$pts[1]} --speed 115200 --nb-stop 1 #{options_rx} --rx --file #{result_file} >> reception.log 2>&1`
 
   reception_status_code = $?
   if reception_status_code.exitstatus.zero?
@@ -109,6 +109,30 @@ $nominal_tests_ymodem = [
 ]
 
 def main
+
+  is_debug = false
+  is_release = false
+
+  ARGV.each do |arg|
+    is_debug = true if arg == '--debug'
+    is_release = true if arg == '--release'
+    break if is_debug or is_release
+    if (arg == '--help')
+      puts 'usage:'
+      puts "#{$PROGRAM_NAME} --debug for test in debug mode"
+      puts "#{$PROGRAM_NAME} --release for test in release mode"
+      exit(1)
+    end
+  end
+
+  if is_release
+    $rzsz_exec = RZSZ_EXEC_RELEASE
+    puts "test in release mode"
+  else
+    is_debug = true
+    $rzsz_exec = RZSZ_EXEC_DEBUG
+    puts "test in debug mode"
+  end
 
   delete_all_previous_log_file
   launch_socat_process
